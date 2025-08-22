@@ -120,6 +120,31 @@ export default function AgendarTurno() {
 
       if (insertError) throw insertError
 
+      try {
+        const appointmentDate = new Date(`${selectedDate}T${selectedTime}:00`).toLocaleDateString("es-AR", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+
+        await fetch("/api/send-whatsapp", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            to: paciente.telefono,
+            patientName: paciente.nombre_apellido,
+            appointmentDate,
+            appointmentTime: selectedTime,
+          }),
+        })
+      } catch (whatsappError) {
+        console.error("Error sending WhatsApp confirmation:", whatsappError)
+        // Don't fail the appointment creation if WhatsApp fails
+      }
+
       setCurrentStep("success")
 
       setSelectedDate("")
