@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Edit, Calendar, Clock, RotateCcw, X, Check, CheckCircle, DollarSign } from "lucide-react"
+import { Plus, Edit, Calendar, Clock, RotateCcw, X, Check, CheckCircle, DollarSign, FileText } from "lucide-react"
 import Link from "next/link"
 import {
   Dialog,
@@ -17,7 +17,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { AppointmentStatusFlow, AppointmentStatusHistory } from "@/components/appointment-status-flow"
+import { AppointmentStatusFlow } from "@/components/appointment-status-flow"
 
 interface Turno {
   id: number
@@ -683,7 +683,6 @@ export default function TurnosPage() {
                       history={turno.status_flow?.history}
                       className="max-w-md"
                     />
-                    <AppointmentStatusHistory history={turno.status_flow?.history || []} />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
@@ -1031,20 +1030,24 @@ export default function TurnosPage() {
 
                 {/* Payment Information */}
                 {selectedTurno.payment_intent_id && (
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <h3 className="text-lg font-semibold mb-3">Información de Pago</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <h4 className="font-semibold text-sm text-gray-700 mb-2">Información de Pago</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="font-medium text-gray-600">Payment Intent ID:</span>
-                        <p className="text-gray-900 font-mono text-xs">{selectedTurno.payment_intent_id}</p>
+                        <p>
+                          <strong>Payment Intent ID:</strong> {selectedTurno.payment_intent_id}
+                        </p>
+                        <p>
+                          <strong>Estado del Pago:</strong> {selectedTurno.payment_status}
+                        </p>
                       </div>
                       <div>
-                        <span className="font-medium text-gray-600">Monto Seña:</span>
-                        <p className="text-gray-900">${selectedTurno.deposit_amount}</p>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-600">Monto Total:</span>
-                        <p className="text-gray-900">${selectedTurno.payment_amount}</p>
+                        <p>
+                          <strong>Monto:</strong> ${selectedTurno.payment_amount}
+                        </p>
+                        <p>
+                          <strong>Seña:</strong> ${selectedTurno.deposit_amount}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1052,73 +1055,93 @@ export default function TurnosPage() {
 
                 {/* Audit History */}
                 <div className="bg-white border rounded-lg">
-                  <h3 className="text-lg font-semibold p-4 border-b">Historial de Modificaciones</h3>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                            Fecha/Hora
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usuario</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acción</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Campo</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                            Valor Anterior
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                            Valor Nuevo
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notas</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {auditRecords.map((audit, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              <div>{new Date(audit.fecha_modificacion).toLocaleDateString("es-AR")}</div>
-                              <div className="text-xs text-gray-500">
-                                {new Date(audit.fecha_modificacion).toLocaleTimeString("es-AR")}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              <div className="font-medium text-gray-900">{audit.usuario_nombre}</div>
-                              <div className="text-xs text-gray-500">Consultor</div>
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              <span
-                                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                  audit.accion === "CREATE"
-                                    ? "bg-green-100 text-green-800"
-                                    : audit.accion === "UPDATE"
-                                      ? "bg-blue-100 text-blue-800"
-                                      : audit.accion === "DELETE"
-                                        ? "bg-red-100 text-red-800"
-                                        : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {audit.accion}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{audit.campo_modificado}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
-                              {audit.valor_anterior || "-"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate font-medium">
-                              {audit.valor_nuevo || "-"}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600 max-w-xs">{audit.descripcion || "-"}</td>
-                          </tr>
-                        ))}
-                        {auditRecords.length === 0 && (
+                  <h3 className="text-lg font-semibold p-4 border-b flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Historial de Modificaciones
+                  </h3>
+                  <div className="p-4">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg">
+                        <thead className="bg-gray-50">
                           <tr>
-                            <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                              No hay historial de modificaciones disponible
-                            </td>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                              Fecha/Hora
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Usuario</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Acción</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Campo</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                              Valor Anterior
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                              Valor Nuevo
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Notas</th>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {auditRecords.length > 0 ? (
+                            auditRecords.map((audit, index) => (
+                              <tr key={index} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 text-xs text-gray-900">
+                                  {new Date(audit.fecha_modificacion).toLocaleString("es-AR", {
+                                    timeZone: "America/Argentina/Buenos_Aires",
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </td>
+                                <td className="px-3 py-2 text-xs text-gray-900">{audit.usuario_nombre || "Sistema"}</td>
+                                <td className="px-3 py-2 text-xs">
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      audit.accion === "CREATE"
+                                        ? "bg-green-100 text-green-800"
+                                        : audit.accion === "UPDATE"
+                                          ? "bg-blue-100 text-blue-800"
+                                          : audit.accion === "DELETE"
+                                            ? "bg-red-100 text-red-800"
+                                            : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {audit.accion}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-xs text-gray-900 font-medium">
+                                  {audit.campo_modificado}
+                                </td>
+                                <td
+                                  className="px-3 py-2 text-xs text-gray-600 max-w-32 truncate"
+                                  title={audit.valor_anterior}
+                                >
+                                  {audit.valor_anterior || "-"}
+                                </td>
+                                <td
+                                  className="px-3 py-2 text-xs text-gray-900 max-w-32 truncate font-medium"
+                                  title={audit.valor_nuevo}
+                                >
+                                  {audit.valor_nuevo || "-"}
+                                </td>
+                                <td
+                                  className="px-3 py-2 text-xs text-gray-600 max-w-40 truncate"
+                                  title={audit.descripcion}
+                                >
+                                  {audit.descripcion || "-"}
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={7} className="px-3 py-4 text-center text-sm text-gray-500">
+                                No hay registros de auditoría disponibles
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
 
@@ -1131,7 +1154,6 @@ export default function TurnosPage() {
                       history={selectedTurno.status_flow?.history}
                       className="mb-4"
                     />
-                    <AppointmentStatusHistory history={selectedTurno.status_flow?.history || []} />
                   </div>
                 </div>
               </div>
