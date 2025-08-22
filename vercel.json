@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/whatsapp-confirmations",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}

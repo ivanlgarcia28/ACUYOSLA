@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { supabase } from "@/lib/client"
+import { supabase } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Plus, Edit, Trash2, Users, History, FileText } from "lucide-react"
 import Link from "next/link"
@@ -123,7 +123,7 @@ export default function PacientesPage() {
                         <FileText className="h-4 w-4" />
                       </Button>
                     </Link>
-                    <Link href={`/admin/pacientes/${paciente.id}/editar`}>
+                    <Link href={`/admin/pacientes/${paciente.dni}/editar`}>
                       <Button variant="outline" size="sm">
                         <Edit className="h-4 w-4" />
                       </Button>

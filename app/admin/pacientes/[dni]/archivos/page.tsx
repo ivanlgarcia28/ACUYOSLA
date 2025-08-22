@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, LinkIcon, FileText, Download, Trash2, Plus, Upload } from "lucide-react"
-import { createClient } from "@/lib/client"
+import { createClient } from "@/lib/supabase/client"
 
 export default function PacienteArchivosPage() {
   const params = useParams()

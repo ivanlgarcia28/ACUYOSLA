@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { ArrowLeft, ShoppingCart, Calendar, DollarSign, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { createClient } from "@/lib/client"
+import { createClient } from "@/lib/supabase/client"
 
 interface VentaDetalle {
   id: number

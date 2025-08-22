@@ -1,21 +1,23 @@
 "use client"
 
 import type React from "react"
-
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { CheckCircle, Info } from "lucide-react"
-import { createClient } from "@/lib/client"
+import { CheckCircle, Info, CreditCard } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+import StripePaymentForm from "@/components/stripe-payment-form"
 
 interface TimeSlot {
   time: string
   available: boolean
   turno?: any
 }
+
+type BookingStep = "appointment" | "payment" | "success"
 
 export default function AgendarTurno() {
   const [paciente, setPaciente] = useState<any>(null)
@@ -24,7 +26,9 @@ export default function AgendarTurno() {
   const [observaciones, setObservaciones] = useState("")
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
   const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [currentStep, setCurrentStep] = useState<BookingStep>("appointment")
+  const [appointmentData, setAppointmentData] = useState<any>(null)
+  const [depositAmount] = useState(5000) // $5000 ARS deposit
 
   useEffect(() => {
     const pacienteData = sessionStorage.getItem("paciente")
@@ -58,14 +62,15 @@ export default function AgendarTurno() {
         const time = `${hour.toString().padStart(2, "0")}:00`
         const slotDateTime = new Date(`${selectedDate}T${time}:00`)
 
-        // Check if this slot is occupied
+        // Check if this slot is occupied by active appointments only
         const isOccupied = turnos?.some((turno) => {
           const turnoStart = new Date(turno.fecha_horario_inicio)
           const turnoEnd = new Date(turno.fecha_horario_fin)
           return (
             slotDateTime >= turnoStart &&
             slotDateTime < turnoEnd &&
-            !["cancelado_paciente", "cancelado_consultorio", "reprogramado"].includes(turno.estado)
+            // Only block for active appointment states (not cancelled or rescheduled)
+            ["reservado", "confirmado", "completado"].includes(turno.estado)
           )
         })
 
@@ -102,41 +107,112 @@ export default function AgendarTurno() {
       const fechaInicio = new Date(`${selectedDate}T${selectedTime}:00`)
       const fechaFin = new Date(fechaInicio.getTime() + 60 * 60000) // 60 minutes duration
 
-      const { error } = await supabase.from("turnos").insert({
+      setAppointmentData({
         paciente_dni: paciente.dni,
         tratamiento_id: consultaTratamiento.id,
         fecha_horario_inicio: fechaInicio.toISOString(),
         fecha_horario_fin: fechaFin.toISOString(),
-        estado: "confirmado",
         observaciones,
+        calendar_id: "main",
+        deposit_required: true,
+        deposit_amount: depositAmount,
+        patient_dni: paciente.dni,
+        fecha: selectedDate,
+        hora: selectedTime,
       })
-
-      if (error) throw error
-
-      setSuccess(true)
-      // Reset form
-      setSelectedDate("")
-      setSelectedTime("")
-      setObservaciones("")
+      setCurrentStep("payment")
     } catch (error) {
-      console.error("Error creating appointment:", error)
-      alert("Error al agendar el turno. Intente nuevamente.")
+      console.error("Error preparing appointment:", error)
+      alert("Error al preparar el turno. Intente nuevamente.")
     } finally {
       setLoading(false)
     }
   }
 
-  if (success) {
+  const handlePaymentSuccess = async () => {
+    setCurrentStep("success")
+    // Reset form for next appointment
+    setSelectedDate("")
+    setSelectedTime("")
+    setObservaciones("")
+    setAppointmentData(null)
+  }
+
+  const handlePaymentError = (error: string) => {
+    alert(`Error en el pago: ${error}`)
+  }
+
+  if (currentStep === "success") {
     return (
       <div className="p-6">
         <Card className="max-w-md mx-auto">
           <CardContent className="pt-6 text-center">
             <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-gray-900 mb-2">¡Turno Agendado!</h2>
-            <p className="text-gray-600 mb-4">Su consulta ha sido confirmada exitosamente.</p>
-            <Button onClick={() => setSuccess(false)}>Agendar Otra Consulta</Button>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">¡Turno Confirmado!</h2>
+            <p className="text-gray-600 mb-4">Su consulta ha sido confirmada con el pago de la seña.</p>
+            <Button onClick={() => setCurrentStep("appointment")}>Agendar Otra Consulta</Button>
           </CardContent>
         </Card>
+      </div>
+    )
+  }
+
+  if (currentStep === "payment" && appointmentData) {
+    return (
+      <div className="p-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">Confirmar Turno con Seña</h1>
+            <p className="text-gray-600">Complete el pago de la seña para confirmar su turno</p>
+          </div>
+
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Resumen del Turno
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Paciente:</span>
+                  <span className="font-medium">{paciente?.nombre_apellido}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Fecha:</span>
+                  <span className="font-medium">{new Date(appointmentData.fecha).toLocaleDateString("es-AR")}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Hora:</span>
+                  <span className="font-medium">{appointmentData.hora}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Tipo:</span>
+                  <span className="font-medium">Consulta de Evaluación</span>
+                </div>
+                <hr className="my-3" />
+                <div className="flex justify-between text-lg font-bold">
+                  <span>Seña a pagar:</span>
+                  <span>${depositAmount.toLocaleString("es-AR")} ARS</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <StripePaymentForm
+            amount={depositAmount}
+            appointmentData={appointmentData}
+            onSuccess={handlePaymentSuccess}
+            onError={handlePaymentError}
+          />
+
+          <div className="mt-4 text-center">
+            <Button variant="outline" onClick={() => setCurrentStep("appointment")}>
+              Volver a Seleccionar Horario
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -164,6 +240,26 @@ export default function AgendarTurno() {
                     • Cada consulta tiene una duración de <strong>1 hora</strong>
                   </li>
                   <li>• Después de la consulta, se le asignará el tratamiento específico que necesite</li>
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6 border-green-200 bg-green-50">
+          <CardContent className="pt-4">
+            <div className="flex items-start space-x-3">
+              <CreditCard className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-green-800">
+                <p className="font-medium mb-1">Seña para confirmar turno:</p>
+                <ul className="space-y-1 text-green-700">
+                  <li>
+                    • Se requiere una seña de <strong>${depositAmount.toLocaleString("es-AR")} ARS</strong> para
+                    confirmar su turno
+                  </li>
+                  <li>• El pago se realiza de forma segura con Stripe</li>
+                  <li>• La seña se descuenta del costo total de la consulta</li>
+                  <li>• Su turno queda confirmado inmediatamente después del pago</li>
                 </ul>
               </div>
             </div>
@@ -231,7 +327,7 @@ export default function AgendarTurno() {
               </div>
 
               <Button type="submit" className="w-full" disabled={loading || !selectedDate || !selectedTime}>
-                {loading ? "Agendando..." : "Agendar Consulta"}
+                {loading ? "Creando turno..." : "Continuar al Pago"}
               </Button>
             </form>
           </CardContent>

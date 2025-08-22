@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Plus, Edit, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { createClient } from "@/lib/client"
+import { createClient } from "@/lib/supabase/client"
 
 interface ObraSocial {
   id: number

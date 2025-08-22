@@ -1,20 +1,18 @@
 "use client"
 
 import type React from "react"
-import { createClient } from "@/lib/client"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,7 +23,7 @@ export default function AdminLogin() {
     try {
       console.log("[v0] Attempting login with email:", email)
 
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
@@ -35,7 +33,13 @@ export default function AdminLogin() {
         throw error
       }
 
-      console.log("[v0] Supabase auth successful, checking usuarios_sistema table")
+      console.log("[v0] Supabase auth successful, session:", data.session ? "established" : "not established")
+
+      if (!data.session) {
+        throw new Error("No se pudo establecer la sesión")
+      }
+
+      console.log("[v0] Checking usuarios_sistema table")
 
       const { data: usuario, error: userError } = await supabase
         .from("usuarios_sistema")
@@ -53,8 +57,9 @@ export default function AdminLogin() {
 
       console.log("[v0] Login successful, redirecting to admin")
 
-      router.refresh()
-      router.push("/admin")
+      setTimeout(() => {
+        window.location.href = "/admin"
+      }, 100)
     } catch (error: unknown) {
       console.log("[v0] Login error:", error)
       setError(error instanceof Error ? error.message : "Error de autenticación")
