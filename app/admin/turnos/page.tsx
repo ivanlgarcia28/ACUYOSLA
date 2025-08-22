@@ -16,6 +16,7 @@ import {
   User,
   CheckCircle,
   DollarSign,
+  History,
 } from "lucide-react"
 import Link from "next/link"
 import {
@@ -56,6 +57,18 @@ interface Turno {
   }
 }
 
+interface AuditRecord {
+  id: number
+  usuario_email: string
+  usuario_nombre: string
+  accion: string
+  campo_modificado: string
+  valor_anterior: string
+  valor_nuevo: string
+  descripcion: string
+  fecha_modificacion: string
+}
+
 export default function TurnosPage() {
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [loading, setLoading] = useState(true)
@@ -70,6 +83,8 @@ export default function TurnosPage() {
   const [completarModal, setCompletarModal] = useState(false)
   const [pagoModal, setPagoModal] = useState(false)
   const [historialModal, setHistorialModal] = useState(false)
+  const [auditModal, setAuditModal] = useState(false)
+  const [auditRecords, setAuditRecords] = useState<AuditRecord[]>([])
 
   const [nuevaFecha, setNuevaFecha] = useState("")
   const [nuevaHora, setNuevaHora] = useState("")
@@ -77,15 +92,82 @@ export default function TurnosPage() {
   const [observaciones, setObservaciones] = useState("")
   const [estadoPago, setEstadoPago] = useState("")
 
-  useEffect(() => {
-    fetchTurnos()
-  }, [])
+  const [currentUser, setCurrentUser] = useState<{ id: string; email: string; nombre: string } | null>(null)
 
   useEffect(() => {
-    if (viewMode === "daily") {
-      generateDailySlots()
+    fetchTurnos()
+    getCurrentUser()
+  }, [])
+
+  const getCurrentUser = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user) {
+        const { data: userData } = await supabase
+          .from("usuarios_sistema")
+          .select("id, email, nombre_completo")
+          .eq("email", user.email)
+          .single()
+
+        if (userData) {
+          setCurrentUser({
+            id: userData.id,
+            email: userData.email,
+            nombre: userData.nombre_completo,
+          })
+        }
+      }
+    } catch (error) {
+      console.error("Error getting current user:", error)
     }
-  }, [selectedDate, turnos, viewMode])
+  }
+
+  const logAuditChange = async (
+    turnoId: number,
+    accion: string,
+    campoModificado: string,
+    valorAnterior: string,
+    valorNuevo: string,
+    descripcion?: string,
+  ) => {
+    if (!currentUser) return
+
+    try {
+      const { error } = await supabase.from("turnos_audit").insert({
+        turno_id: turnoId,
+        usuario_id: currentUser.id,
+        usuario_email: currentUser.email,
+        usuario_nombre: currentUser.nombre,
+        accion,
+        campo_modificado: campoModificado,
+        valor_anterior: valorAnterior,
+        valor_nuevo: valorNuevo,
+        descripcion,
+      })
+
+      if (error) throw error
+    } catch (error) {
+      console.error("Error logging audit change:", error)
+    }
+  }
+
+  const fetchAuditRecords = async (turnoId: number) => {
+    try {
+      const { data, error } = await supabase
+        .from("turnos_audit")
+        .select("*")
+        .eq("turno_id", turnoId)
+        .order("fecha_modificacion", { ascending: false })
+
+      if (error) throw error
+      setAuditRecords(data || [])
+    } catch (error) {
+      console.error("Error fetching audit records:", error)
+      setAuditRecords([])
+    }
+  }
 
   const fetchTurnos = async () => {
     try {
@@ -301,6 +383,8 @@ export default function TurnosPage() {
 
   const updateAppointmentStatus = async (turnoId: number, newStatus: string, notes?: string) => {
     try {
+      const { data: currentTurno } = await supabase.from("turnos").select("estado").eq("id", turnoId).single()
+
       const { error: updateError } = await supabase
         .from("turnos")
         .update({
@@ -310,7 +394,17 @@ export default function TurnosPage() {
 
       if (updateError) throw updateError
 
-      // Add status change to history
+      if (currentTurno) {
+        await logAuditChange(
+          turnoId,
+          "UPDATE",
+          "estado",
+          currentTurno.estado,
+          newStatus,
+          notes || `Estado cambiado de ${currentTurno.estado} a ${newStatus}`,
+        )
+      }
+
       const { error: historyError } = await supabase.from("turnos_status_history").insert({
         turno_id: turnoId,
         status: newStatus,
@@ -336,6 +430,22 @@ export default function TurnosPage() {
 
       console.log("[v0] Local datetime:", localDateTime.toISOString())
       console.log("[v0] UTC datetime for database:", utcDateTime.toISOString())
+
+      const fechaAnterior = new Date(selectedTurno.fecha_horario_inicio).toLocaleString("es-AR", {
+        timeZone: "America/Argentina/Buenos_Aires",
+      })
+      const fechaNueva = localDateTime.toLocaleString("es-AR", {
+        timeZone: "America/Argentina/Buenos_Aires",
+      })
+
+      await logAuditChange(
+        selectedTurno.id,
+        "UPDATE",
+        "fecha_horario_inicio",
+        fechaAnterior,
+        fechaNueva,
+        `Turno reprogramado de ${fechaAnterior} a ${fechaNueva}`,
+      )
 
       const { error } = await supabase
         .from("turnos")
@@ -434,6 +544,15 @@ export default function TurnosPage() {
     }
   }
 
+  const handleVerAuditoria = async () => {
+    if (!selectedTurno) {
+      alert("Por favor seleccione un turno de la tabla")
+      return
+    }
+    await fetchAuditRecords(selectedTurno.id)
+    setAuditModal(true)
+  }
+
   if (loading) {
     return (
       <div className="p-6">
@@ -519,6 +638,15 @@ export default function TurnosPage() {
           >
             <User className="h-4 w-4 mr-2" />
             Ver Historial Paciente
+          </Button>
+
+          <Button
+            onClick={handleVerAuditoria}
+            variant="outline"
+            className="border-orange-500 text-orange-600 hover:bg-orange-50 bg-transparent"
+          >
+            <History className="h-4 w-4 mr-2" />
+            Ver Auditoría Completa
           </Button>
         </div>
       </div>
@@ -908,6 +1036,87 @@ export default function TurnosPage() {
           </div>
           <DialogFooter>
             <Button onClick={() => setHistorialModal(false)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Audit Modal */}
+      <Dialog open={auditModal} onOpenChange={setAuditModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Auditoría Completa del Turno</DialogTitle>
+            <DialogDescription>
+              Historial detallado de todas las modificaciones realizadas al turno de{" "}
+              {selectedTurno?.pacientes?.nombre_apellido}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {auditRecords.length > 0 ? (
+              <div className="space-y-4">
+                {auditRecords.map((record) => (
+                  <div key={record.id} className="border rounded-lg p-4 bg-gray-50">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            record.accion === "CREATE"
+                              ? "bg-green-100 text-green-800"
+                              : record.accion === "UPDATE"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {record.accion}
+                        </span>
+                        <span className="font-medium text-gray-900">{record.campo_modificado}</span>
+                      </div>
+                      <span className="text-sm text-gray-500">
+                        {new Date(record.fecha_modificacion).toLocaleString("es-AR", {
+                          timeZone: "America/Argentina/Buenos_Aires",
+                        })}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+                      {record.valor_anterior && (
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Valor Anterior:</span>
+                          <p className="text-sm bg-red-50 p-2 rounded border-l-4 border-red-400">
+                            {record.valor_anterior}
+                          </p>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-sm font-medium text-gray-600">Valor Nuevo:</span>
+                        <p className="text-sm bg-green-50 p-2 rounded border-l-4 border-green-400">
+                          {record.valor_nuevo}
+                        </p>
+                      </div>
+                    </div>
+
+                    {record.descripcion && (
+                      <div className="mb-2">
+                        <span className="text-sm font-medium text-gray-600">Descripción:</span>
+                        <p className="text-sm text-gray-700">{record.descripcion}</p>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <span>👤 {record.usuario_nombre}</span>
+                      <span>📧 {record.usuario_email}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">No hay registros de auditoría para este turno</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setAuditModal(false)}>Cerrar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
