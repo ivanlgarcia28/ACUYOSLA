@@ -114,7 +114,7 @@ export default function PacientesPage() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div className="flex space-x-2">
                     <Link href={`/admin/pacientes/${paciente.dni}/historial`}>
-                      <Button variant="outline" size="sm" title="Ver historial de turnos">
+                      <Button variant="outline" size="sm" title="Ver historial completo del paciente">
                         <History className="h-4 w-4" />
                       </Button>
                     </Link>

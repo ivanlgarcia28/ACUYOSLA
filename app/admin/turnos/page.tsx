@@ -4,20 +4,7 @@ import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Plus,
-  Edit,
-  Calendar,
-  Clock,
-  RotateCcw,
-  X,
-  Check,
-  MessageCircle,
-  User,
-  CheckCircle,
-  DollarSign,
-  History,
-} from "lucide-react"
+import { Plus, Edit, Calendar, Clock, RotateCcw, X, Check, CheckCircle, DollarSign } from "lucide-react"
 import Link from "next/link"
 import {
   Dialog,
@@ -55,6 +42,12 @@ interface Turno {
   tratamientos?: {
     nombre: string
   }
+  duracion_minutos?: number
+  payment_status?: string
+  payment_intent_id?: string
+  deposit_amount?: number
+  payment_amount?: number
+  created_at?: string
 }
 
 interface AuditRecord {
@@ -67,6 +60,14 @@ interface AuditRecord {
   valor_nuevo: string
   descripcion: string
   fecha_modificacion: string
+}
+
+interface TimeSlot {
+  time: string
+  available: boolean
+  turno?: Turno
+  isFirstSlot?: boolean
+  isContinuation?: boolean
 }
 
 export default function TurnosPage() {
@@ -82,7 +83,6 @@ export default function TurnosPage() {
   const [confirmarModal, setConfirmarModal] = useState(false)
   const [completarModal, setCompletarModal] = useState(false)
   const [pagoModal, setPagoModal] = useState(false)
-  const [historialModal, setHistorialModal] = useState(false)
   const [auditModal, setAuditModal] = useState(false)
   const [auditRecords, setAuditRecords] = useState<AuditRecord[]>([])
 
@@ -354,24 +354,6 @@ export default function TurnosPage() {
     setCompletarModal(true)
   }
 
-  const handleEnviarRecordatorio = () => {
-    if (!selectedTurno) {
-      alert("Por favor seleccione un turno de la tabla")
-      return
-    }
-    const mensaje = `Hola ${selectedTurno.pacientes?.nombre_apellido}, le recordamos su cita para ${new Date(selectedTurno.fecha_horario_inicio).toLocaleDateString("es-ES")} a las ${new Date(selectedTurno.fecha_horario_inicio).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(mensaje)}`
-    window.open(whatsappUrl, "_blank")
-  }
-
-  const handleVerHistorial = () => {
-    if (!selectedTurno) {
-      alert("Por favor seleccione un turno de la tabla")
-      return
-    }
-    setHistorialModal(true)
-  }
-
   const handleGestionarPago = () => {
     if (!selectedTurno) {
       alert("Por favor seleccione un turno de la tabla")
@@ -619,34 +601,6 @@ export default function TurnosPage() {
           <Button onClick={handleGestionarPago} className="bg-purple-600 hover:bg-purple-700 text-white">
             <DollarSign className="h-4 w-4 mr-2" />
             Gestionar Pago (PLUS)
-          </Button>
-
-          {/* Secondary Actions */}
-          <Button
-            onClick={handleEnviarRecordatorio}
-            variant="outline"
-            className="border-green-500 text-green-600 hover:bg-green-50 bg-transparent"
-          >
-            <MessageCircle className="h-4 w-4 mr-2" />
-            Enviar Recordatorio WhatsApp
-          </Button>
-
-          <Button
-            onClick={handleVerHistorial}
-            variant="outline"
-            className="border-blue-500 text-blue-600 hover:bg-blue-50 bg-transparent"
-          >
-            <User className="h-4 w-4 mr-2" />
-            Ver Historial Paciente
-          </Button>
-
-          <Button
-            onClick={handleVerAuditoria}
-            variant="outline"
-            className="border-orange-500 text-orange-600 hover:bg-orange-50 bg-transparent"
-          >
-            <History className="h-4 w-4 mr-2" />
-            Ver Auditoría Completa
           </Button>
         </div>
       </div>
@@ -1016,118 +970,175 @@ export default function TurnosPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Historial Modal */}
-      <Dialog open={historialModal} onOpenChange={setHistorialModal}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Historial del Paciente</DialogTitle>
-            <DialogDescription>Historial médico de {selectedTurno?.pacientes?.nombre_apellido}</DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-gray-600">
-              Esta funcionalidad mostrará el historial completo del paciente, incluyendo tratamientos anteriores,
-              observaciones médicas, y archivos adjuntos.
-            </p>
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm font-medium">Información del Paciente:</p>
-              <p className="text-sm">DNI: {selectedTurno?.paciente_dni}</p>
-              <p className="text-sm">Nombre: {selectedTurno?.pacientes?.nombre_apellido}</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setHistorialModal(false)}>Cerrar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Audit Modal */}
-      <Dialog open={auditModal} onOpenChange={setAuditModal}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Auditoría Completa del Turno</DialogTitle>
-            <DialogDescription>
-              Historial detallado de todas las modificaciones realizadas al turno de{" "}
-              {selectedTurno?.pacientes?.nombre_apellido}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            {auditRecords.length > 0 ? (
-              <div className="space-y-4">
-                {auditRecords.map((record) => (
-                  <div key={record.id} className="border rounded-lg p-4 bg-gray-50">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${
-                            record.accion === "CREATE"
-                              ? "bg-green-100 text-green-800"
-                              : record.accion === "UPDATE"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {record.accion}
-                        </span>
-                        <span className="font-medium text-gray-900">{record.campo_modificado}</span>
-                      </div>
-                      <span className="text-sm text-gray-500">
-                        {new Date(record.fecha_modificacion).toLocaleString("es-AR", {
-                          timeZone: "America/Argentina/Buenos_Aires",
-                        })}
-                      </span>
-                    </div>
+      {auditModal && selectedTurno && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto mx-4">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Auditoría Completa - Turno #{selectedTurno.id}</h2>
+              <Button onClick={() => setAuditModal(false)} variant="outline" size="sm">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
-                      {record.valor_anterior && (
-                        <div>
-                          <span className="text-sm font-medium text-gray-600">Valor Anterior:</span>
-                          <p className="text-sm bg-red-50 p-2 rounded border-l-4 border-red-400">
-                            {record.valor_anterior}
-                          </p>
-                        </div>
-                      )}
+            <div className="space-y-6">
+              {/* Turno Information Header */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="text-lg font-semibold mb-3">Información del Turno</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-gray-600">Paciente:</span>
+                    <p className="text-gray-900">{selectedTurno.pacientes?.nombre_apellido}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">DNI:</span>
+                    <p className="text-gray-900">{selectedTurno.paciente_dni}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Tratamiento:</span>
+                    <p className="text-gray-900">{selectedTurno.tratamientos?.nombre}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Estado Actual:</span>
+                    <p className="text-gray-900 font-medium">{selectedTurno.estado}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Fecha/Hora:</span>
+                    <p className="text-gray-900">
+                      {new Date(selectedTurno.fecha_horario_inicio).toLocaleDateString("es-AR")} -
+                      {new Date(selectedTurno.fecha_horario_inicio).toLocaleTimeString("es-AR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Duración:</span>
+                    <p className="text-gray-900">{selectedTurno.duracion_minutos} min</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Estado Pago:</span>
+                    <p className="text-gray-900">{selectedTurno.payment_status || "N/A"}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Creado:</span>
+                    <p className="text-gray-900">
+                      {new Date(selectedTurno.created_at).toLocaleDateString("es-AR")} -
+                      {new Date(selectedTurno.created_at).toLocaleTimeString("es-AR")}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Payment Information */}
+                {selectedTurno.payment_intent_id && (
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h3 className="text-lg font-semibold mb-3">Información de Pago</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                       <div>
-                        <span className="text-sm font-medium text-gray-600">Valor Nuevo:</span>
-                        <p className="text-sm bg-green-50 p-2 rounded border-l-4 border-green-400">
-                          {record.valor_nuevo}
-                        </p>
+                        <span className="font-medium text-gray-600">Payment Intent ID:</span>
+                        <p className="text-gray-900 font-mono text-xs">{selectedTurno.payment_intent_id}</p>
                       </div>
-                    </div>
-
-                    {record.descripcion && (
-                      <div className="mb-2">
-                        <span className="text-sm font-medium text-gray-600">Descripción:</span>
-                        <p className="text-sm text-gray-700">{record.descripcion}</p>
+                      <div>
+                        <span className="font-medium text-gray-600">Monto Seña:</span>
+                        <p className="text-gray-900">${selectedTurno.deposit_amount}</p>
                       </div>
-                    )}
-
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <span>👤 {record.usuario_nombre}</span>
-                      <span>📧 {record.usuario_email}</span>
+                      <div>
+                        <span className="font-medium text-gray-600">Monto Total:</span>
+                        <p className="text-gray-900">${selectedTurno.payment_amount}</p>
+                      </div>
                     </div>
                   </div>
-                ))}
+                )}
+
+                {/* Audit History */}
+                <div className="bg-white border rounded-lg">
+                  <h3 className="text-lg font-semibold p-4 border-b">Historial de Modificaciones</h3>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            Fecha/Hora
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usuario</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acción</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Campo</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            Valor Anterior
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            Valor Nuevo
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notas</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {auditRecords.map((audit, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                              <div>{new Date(audit.fecha_modificacion).toLocaleDateString("es-AR")}</div>
+                              <div className="text-xs text-gray-500">
+                                {new Date(audit.fecha_modificacion).toLocaleTimeString("es-AR")}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <div className="font-medium text-gray-900">{audit.usuario_nombre}</div>
+                              <div className="text-xs text-gray-500">Consultor</div>
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <span
+                                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  audit.accion === "CREATE"
+                                    ? "bg-green-100 text-green-800"
+                                    : audit.accion === "UPDATE"
+                                      ? "bg-blue-100 text-blue-800"
+                                      : audit.accion === "DELETE"
+                                        ? "bg-red-100 text-red-800"
+                                        : "bg-gray-100 text-gray-800"
+                                }`}
+                              >
+                                {audit.accion}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{audit.campo_modificado}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
+                              {audit.valor_anterior || "-"}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate font-medium">
+                              {audit.valor_nuevo || "-"}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600 max-w-xs">{audit.descripcion || "-"}</td>
+                          </tr>
+                        ))}
+                        {auditRecords.length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                              No hay historial de modificaciones disponible
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Status Flow History */}
+                <div className="bg-white border rounded-lg">
+                  <h3 className="text-lg font-semibold p-4 border-b">Progreso de Estados</h3>
+                  <div className="p-4">
+                    <AppointmentStatusFlow
+                      currentStatus={selectedTurno.estado}
+                      history={selectedTurno.status_flow?.history}
+                      className="mb-4"
+                    />
+                    <AppointmentStatusHistory history={selectedTurno.status_flow?.history || []} />
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div className="text-center py-8">
-                <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No hay registros de auditoría para este turno</p>
-              </div>
-            )}
+            </div>
           </div>
-          <DialogFooter>
-            <Button onClick={() => setAuditModal(false)}>Cerrar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </div>
   )
-}
-
-interface TimeSlot {
-  time: string
-  available: boolean
-  turno?: Turno
-  isFirstSlot?: boolean
-  isContinuation?: boolean
 }
