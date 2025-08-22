@@ -104,13 +104,23 @@ export default function TurnosPage() {
 
       if (error) throw error
 
-      const turnosWithHistory = (data || []).map((turno) => ({
-        ...turno,
-        status_flow: {
-          current: turno.estado,
-          history: [], // Empty history until schema is updated
-        },
-      }))
+      const turnosWithHistory = await Promise.all(
+        (data || []).map(async (turno) => {
+          const { data: historyData } = await supabase
+            .from("turnos_status_history")
+            .select("status, changed_at, notes")
+            .eq("turno_id", turno.id)
+            .order("changed_at", { ascending: true })
+
+          return {
+            ...turno,
+            status_flow: {
+              current: turno.estado,
+              history: historyData || [],
+            },
+          }
+        }),
+      )
 
       setTurnos(turnosWithHistory)
     } catch (error) {
@@ -300,6 +310,15 @@ export default function TurnosPage() {
 
       if (updateError) throw updateError
 
+      // Add status change to history
+      const { error: historyError } = await supabase.from("turnos_status_history").insert({
+        turno_id: turnoId,
+        status: newStatus,
+        notes: notes || null,
+      })
+
+      if (historyError) throw historyError
+
       console.log("[v0] Successfully updated appointment status to:", newStatus)
       fetchTurnos()
     } catch (error) {
@@ -312,22 +331,32 @@ export default function TurnosPage() {
     if (!selectedTurno || !nuevaFecha || !nuevaHora) return
 
     try {
-      const nuevaFechaHora = `${nuevaFecha}T${nuevaHora}:00`
+      const localDateTime = new Date(`${nuevaFecha}T${nuevaHora}:00`)
+      const utcDateTime = new Date(localDateTime.getTime() - localDateTime.getTimezoneOffset() * 60000)
+
+      console.log("[v0] Local datetime:", localDateTime.toISOString())
+      console.log("[v0] UTC datetime for database:", utcDateTime.toISOString())
+
       const { error } = await supabase
         .from("turnos")
         .update({
-          fecha_horario_inicio: nuevaFechaHora,
+          fecha_horario_inicio: utcDateTime.toISOString(),
+          fecha_horario_fin: new Date(utcDateTime.getTime() + 60 * 60 * 1000).toISOString(), // Add 1 hour
         })
         .eq("id", selectedTurno.id)
 
       if (error) throw error
 
-      await updateAppointmentStatus(selectedTurno.id, "reprogramado", `Reprogramado para ${nuevaFecha} ${nuevaHora}`)
+      await updateAppointmentStatus(
+        selectedTurno.id,
+        "reservado",
+        `Reprogramado para ${nuevaFecha} ${nuevaHora} - Reiniciando flujo de confirmación`,
+      )
 
       setReprogramarModal(false)
       setNuevaFecha("")
       setNuevaHora("")
-      alert("Turno reprogramado exitosamente")
+      alert("Turno reprogramado exitosamente. El flujo de confirmación se ha reiniciado.")
     } catch (error) {
       console.error("Error:", error)
       alert("Error al reprogramar el turno")
@@ -548,12 +577,15 @@ export default function TurnosPage() {
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
-                      {new Date(turno.fecha_horario_inicio).toLocaleDateString("es-ES")}
+                      {new Date(turno.fecha_horario_inicio).toLocaleDateString("es-AR", {
+                        timeZone: "America/Argentina/Buenos_Aires",
+                      })}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {new Date(turno.fecha_horario_inicio).toLocaleTimeString("es-ES", {
+                      {new Date(turno.fecha_horario_inicio).toLocaleTimeString("es-AR", {
                         hour: "2-digit",
                         minute: "2-digit",
+                        timeZone: "America/Argentina/Buenos_Aires",
                       })}
                     </div>
                   </td>
