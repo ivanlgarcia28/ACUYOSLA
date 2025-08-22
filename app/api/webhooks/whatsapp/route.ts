@@ -76,14 +76,32 @@ function verifyWebhookSignature(body: any, signature: string): boolean {
 
 // Verification endpoint for webhook setup
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const mode = searchParams.get("hub.mode")
-  const token = searchParams.get("hub.verify_token")
-  const challenge = searchParams.get("hub.challenge")
+  try {
+    console.log("[v0] WhatsApp webhook GET request received")
+    console.log("[v0] Request URL:", request.url)
+    console.log("[v0] Request nextUrl:", request.nextUrl)
 
-  if (mode === "subscribe" && token === process.env.WHATSAPP_VERIFY_TOKEN) {
-    return new Response(challenge)
+    if (!request.nextUrl) {
+      console.error("[v0] request.nextUrl is undefined")
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 })
+    }
+
+    const searchParams = request.nextUrl.searchParams
+    const mode = searchParams.get("hub.mode")
+    const token = searchParams.get("hub.verify_token")
+    const challenge = searchParams.get("hub.challenge")
+
+    console.log("[v0] Webhook verification params:", { mode, token: token ? "***" : null, challenge })
+
+    if (mode === "subscribe" && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+      console.log("[v0] Webhook verification successful")
+      return new Response(challenge)
+    }
+
+    console.log("[v0] Webhook verification failed")
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  } catch (error) {
+    console.error("[v0] WhatsApp webhook GET error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
-
-  return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 }
