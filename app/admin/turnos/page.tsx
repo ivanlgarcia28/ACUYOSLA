@@ -363,6 +363,15 @@ export default function TurnosPage() {
     setPagoModal(true)
   }
 
+  const handleVerAuditoria = async () => {
+    if (!selectedTurno) {
+      alert("Por favor seleccione un turno de la tabla")
+      return
+    }
+    await fetchAuditRecords(selectedTurno.id)
+    setAuditModal(true)
+  }
+
   const updateAppointmentStatus = async (turnoId: number, newStatus: string, notes?: string) => {
     try {
       const { data: currentTurno } = await supabase.from("turnos").select("estado").eq("id", turnoId).single()
@@ -526,15 +535,6 @@ export default function TurnosPage() {
     }
   }
 
-  const handleVerAuditoria = async () => {
-    if (!selectedTurno) {
-      alert("Por favor seleccione un turno de la tabla")
-      return
-    }
-    await fetchAuditRecords(selectedTurno.id)
-    setAuditModal(true)
-  }
-
   if (loading) {
     return (
       <div className="p-6">
@@ -601,6 +601,11 @@ export default function TurnosPage() {
           <Button onClick={handleGestionarPago} className="bg-purple-600 hover:bg-purple-700 text-white">
             <DollarSign className="h-4 w-4 mr-2" />
             Gestionar Pago (PLUS)
+          </Button>
+
+          <Button onClick={handleVerAuditoria} className="bg-slate-600 hover:bg-slate-700 text-white">
+            <FileText className="h-4 w-4 mr-2" />
+            Ver Auditoría Completa
           </Button>
         </div>
       </div>
