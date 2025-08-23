@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
       mode,
       token,
       challenge: challenge ? `${challenge.substring(0, 10)}...` : null,
-      expectedToken: verifyToken,
+      expectedToken: verifyToken ? `${verifyToken.substring(0, 5)}...` : null,
       tokenMatch: token === verifyToken,
     })
 
@@ -107,6 +107,23 @@ export async function GET(request: NextRequest) {
           debug: "WHATSAPP_VERIFY_TOKEN not configured",
         },
         { status: 500 },
+      )
+    }
+
+    if (!mode && !token && !challenge) {
+      return NextResponse.json(
+        {
+          status: "WhatsApp Webhook Active",
+          message: "This is a WhatsApp webhook endpoint for Meta Business API",
+          instructions: {
+            step1: "Use this URL in Meta Developer Console webhook configuration",
+            step2: `Set verification token to: ${verifyToken}`,
+            step3: "Meta will send verification parameters to validate this endpoint",
+          },
+          currentUrl: request.url,
+          timestamp: new Date().toISOString(),
+        },
+        { status: 200 },
       )
     }
 
@@ -123,18 +140,17 @@ export async function GET(request: NextRequest) {
     console.log("[v0] Webhook verification failed")
     console.log("[v0] Mode check:", mode === "subscribe")
     console.log("[v0] Token check:", token === verifyToken)
-    console.log("[v0] Expected:", verifyToken)
-    console.log("[v0] Received:", token)
 
     return NextResponse.json(
       {
-        error: "Forbidden",
+        error: "Webhook Verification Failed",
         debug: {
-          mode: mode,
+          receivedMode: mode,
           expectedMode: "subscribe",
+          receivedToken: token ? `${token.substring(0, 5)}...` : null,
+          expectedToken: verifyToken ? `${verifyToken.substring(0, 5)}...` : null,
           tokenMatch: token === verifyToken,
-          receivedTokenLength: token?.length || 0,
-          expectedTokenLength: verifyToken?.length || 0,
+          help: "Make sure the verification token in Meta matches your environment variable",
         },
       },
       { status: 403 },
