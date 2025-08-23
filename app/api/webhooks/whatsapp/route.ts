@@ -79,26 +79,23 @@ export async function GET(request: NextRequest) {
   try {
     console.log("[v0] WhatsApp webhook GET request received")
     console.log("[v0] Request URL:", request.url)
-    console.log("[v0] Request nextUrl:", request.nextUrl)
+    console.log("[v0] User-Agent:", request.headers.get("user-agent"))
 
     const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN
     console.log("[v0] Environment WHATSAPP_VERIFY_TOKEN exists:", !!verifyToken)
-    console.log("[v0] Environment WHATSAPP_VERIFY_TOKEN length:", verifyToken?.length || 0)
+    console.log("[v0] Environment WHATSAPP_VERIFY_TOKEN value:", verifyToken)
 
-    if (!request.nextUrl) {
-      console.error("[v0] request.nextUrl is undefined")
-      return NextResponse.json({ error: "Invalid request" }, { status: 400 })
-    }
-
-    const searchParams = request.nextUrl.searchParams
-    const mode = searchParams.get("hub.mode")
-    const token = searchParams.get("hub.verify_token")
-    const challenge = searchParams.get("hub.challenge")
+    // Parse URL manually to handle edge cases
+    const url = new URL(request.url)
+    const mode = url.searchParams.get("hub.mode")
+    const token = url.searchParams.get("hub.verify_token")
+    const challenge = url.searchParams.get("hub.challenge")
 
     console.log("[v0] Webhook verification params:", {
       mode,
-      token: token ? `${token.substring(0, 10)}...` : null,
+      token,
       challenge: challenge ? `${challenge.substring(0, 10)}...` : null,
+      expectedToken: verifyToken,
       tokenMatch: token === verifyToken,
     })
 
@@ -114,23 +111,42 @@ export async function GET(request: NextRequest) {
     }
 
     if (mode === "subscribe" && token === verifyToken) {
-      console.log("[v0] Webhook verification successful")
-      return new Response(challenge)
+      console.log("[v0] Webhook verification successful - returning challenge")
+      return new Response(challenge, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/plain",
+        },
+      })
     }
 
-    console.log("[v0] Webhook verification failed - token mismatch")
-    console.log("[v0] Expected token length:", verifyToken.length)
-    console.log("[v0] Received token length:", token?.length || 0)
+    console.log("[v0] Webhook verification failed")
+    console.log("[v0] Mode check:", mode === "subscribe")
+    console.log("[v0] Token check:", token === verifyToken)
+    console.log("[v0] Expected:", verifyToken)
+    console.log("[v0] Received:", token)
 
     return NextResponse.json(
       {
         error: "Forbidden",
-        debug: mode !== "subscribe" ? "Invalid mode" : "Token mismatch",
+        debug: {
+          mode: mode,
+          expectedMode: "subscribe",
+          tokenMatch: token === verifyToken,
+          receivedTokenLength: token?.length || 0,
+          expectedTokenLength: verifyToken?.length || 0,
+        },
       },
       { status: 403 },
     )
   } catch (error) {
     console.error("[v0] WhatsApp webhook GET error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
