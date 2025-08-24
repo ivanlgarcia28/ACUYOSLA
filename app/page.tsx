@@ -16,15 +16,100 @@ import {
   Zap,
   Package,
   ShoppingCart,
-  Palette,
   ArrowRight,
+  Truck,
+  DollarSign,
+  Star,
+  Filter,
 } from "lucide-react"
 import { useEffect, useState } from "react"
+import { createClient } from "@supabase/supabase-js"
 
 type BusinessType = "home" | "odontologia" | "guantes"
 
+interface Category {
+  id: number
+  nombre: string
+  descripcion: string
+  activa: boolean
+}
+
+interface Product {
+  id: number
+  nombre: string
+  descripcion: string
+  precio: number
+  color: string
+  categoria_id: number
+  marca: string
+  presentacion: string
+  stock: number
+}
+
 export default function LandingPage() {
   const [currentView, setCurrentView] = useState<BusinessType>("home")
+  const [categories, setCategories] = useState<Category[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
+  useEffect(() => {
+    if (currentView === "guantes") {
+      fetchCategories()
+      fetchProducts()
+    }
+  }, [currentView])
+
+  const fetchCategories = async () => {
+    try {
+      const { data, error } = await supabase.from("categorias_productos").select("*").eq("activa", true).order("nombre")
+
+      if (error) throw error
+      setCategories(data || [])
+    } catch (error) {
+      console.error("Error fetching categories:", error)
+    }
+  }
+
+  const fetchProducts = async () => {
+    setLoading(true)
+    try {
+      let query = supabase.from("productos").select("*").order("nombre")
+
+      if (selectedCategory) {
+        query = query.eq("categoria_id", selectedCategory)
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+      setProducts(data || [])
+    } catch (error) {
+      console.error("Error fetching products:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (currentView === "guantes") {
+      fetchProducts()
+    }
+  }, [selectedCategory])
+
+  const groupedProducts = products.reduce(
+    (acc, product) => {
+      const key = product.nombre
+      if (!acc[key]) {
+        acc[key] = []
+      }
+      acc[key].push(product)
+      return acc
+    },
+    {} as Record<string, Product[]>,
+  )
 
   useEffect(() => {
     console.log("[v0] Landing page loaded successfully")
@@ -197,67 +282,62 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Products Categories */}
         <section className="py-16 px-4 bg-white">
           <div className="container mx-auto">
             <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">Nuestros Productos</h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              <Card>
-                <CardHeader>
-                  <Shield className="w-10 h-10 text-purple-600 mb-2" />
-                  <CardTitle>Guantes de Protección</CardTitle>
-                  <CardDescription>
-                    Guantes de nitrilo, látex y vinilo para diferentes aplicaciones médicas y de laboratorio.
+              {categories.map((category, index) => {
+                const colors = ["purple", "blue", "green", "red", "orange", "indigo"]
+                const colorClass = colors[index % colors.length]
+                const iconColorClass = `text-${colorClass}-600`
+
+                return (
+                  <Card key={category.id}>
+                    <CardHeader>
+                      <Package className={`w-10 h-10 ${iconColorClass} mb-2`} />
+                      <CardTitle>{category.nombre}</CardTitle>
+                      <CardDescription>{category.descripcion}</CardDescription>
+                    </CardHeader>
+                  </Card>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section className="py-16 px-4 bg-gradient-to-r from-purple-600 to-blue-600">
+          <div className="container mx-auto">
+            <h2 className="text-3xl font-bold text-center text-white mb-12">¿Por qué elegir Ele Guantes?</h2>
+            <div className="grid md:grid-cols-3 gap-8">
+              <Card className="bg-white/10 backdrop-blur-sm border-white/20">
+                <CardHeader className="text-center">
+                  <DollarSign className="w-12 h-12 text-yellow-300 mx-auto mb-4" />
+                  <CardTitle className="text-white text-xl">Precios Más Bajos del Mercado</CardTitle>
+                  <CardDescription className="text-white/90">
+                    Ofrecemos los mejores precios sin comprometer la calidad. Comparamos constantemente para garantizar
+                    el mejor valor.
                   </CardDescription>
                 </CardHeader>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <Package className="w-10 h-10 text-blue-600 mb-2" />
-                  <CardTitle>Insumos Médicos</CardTitle>
-                  <CardDescription>
-                    Mascarillas, batas, gorros y todo el equipamiento de protección personal necesario.
+              <Card className="bg-white/10 backdrop-blur-sm border-white/20">
+                <CardHeader className="text-center">
+                  <ShoppingCart className="w-12 h-12 text-green-300 mx-auto mb-4" />
+                  <CardTitle className="text-white text-xl">Ventas por Mayor Seguras</CardTitle>
+                  <CardDescription className="text-white/90">
+                    Transacciones seguras y confiables. Descuentos especiales para compras al por mayor con garantía
+                    total.
                   </CardDescription>
                 </CardHeader>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <Stethoscope className="w-10 h-10 text-green-600 mb-2" />
-                  <CardTitle>Equipamiento</CardTitle>
-                  <CardDescription>
-                    Instrumentos y equipos médicos de alta calidad para consultorios y clínicas.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <Heart className="w-10 h-10 text-red-600 mb-2" />
-                  <CardTitle>Productos Odontológicos</CardTitle>
-                  <CardDescription>
-                    Insumos especializados para consultorios odontológicos y tratamientos dentales.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <ShoppingCart className="w-10 h-10 text-orange-600 mb-2" />
-                  <CardTitle>Venta por Mayor</CardTitle>
-                  <CardDescription>
-                    Precios especiales para compras al por mayor y distribuidores autorizados.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <Clock className="w-10 h-10 text-indigo-600 mb-2" />
-                  <CardTitle>Entrega Rápida</CardTitle>
-                  <CardDescription>
-                    Servicio de entrega rápida y confiable para mantener tu stock siempre disponible.
+              <Card className="bg-white/10 backdrop-blur-sm border-white/20">
+                <CardHeader className="text-center">
+                  <Truck className="w-12 h-12 text-blue-300 mx-auto mb-4" />
+                  <CardTitle className="text-white text-xl">Entrega Rápida</CardTitle>
+                  <CardDescription className="text-white/90">
+                    Envíos rápidos y seguros. Mantenemos tu stock siempre disponible con nuestro servicio de entrega
+                    express.
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -265,51 +345,94 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Product Showcase */}
         <section className="py-16 px-4 bg-gray-50">
           <div className="container mx-auto">
-            <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">Productos Destacados</h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              <Card className="overflow-hidden">
-                <div className="h-48 bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-                  <Palette className="w-16 h-16 text-white" />
-                </div>
-                <CardHeader>
-                  <CardTitle className="text-blue-600">Guantes Nitrilo Azul</CardTitle>
-                  <CardDescription>Sin polvo, alta resistencia, ideales para procedimientos médicos.</CardDescription>
-                </CardHeader>
-              </Card>
+            <h2 className="text-3xl font-bold text-center text-gray-900 mb-8">Productos Destacados</h2>
 
-              <Card className="overflow-hidden">
-                <div className="h-48 bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
-                  <Palette className="w-16 h-16 text-white" />
-                </div>
-                <CardHeader>
-                  <CardTitle className="text-purple-600">Guantes Nitrilo Violeta</CardTitle>
-                  <CardDescription>Resistentes a químicos, perfectos para laboratorios y odontología.</CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card className="overflow-hidden">
-                <div className="h-48 bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
-                  <Palette className="w-16 h-16 text-white" />
-                </div>
-                <CardHeader>
-                  <CardTitle className="text-green-600">Guantes Látex Verde</CardTitle>
-                  <CardDescription>Flexibilidad superior, tacto natural, para cirugías delicadas.</CardDescription>
-                </CardHeader>
-              </Card>
-
-              <Card className="overflow-hidden">
-                <div className="h-48 bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center">
-                  <Palette className="w-16 h-16 text-white" />
-                </div>
-                <CardHeader>
-                  <CardTitle className="text-gray-600">Guantes Vinilo Transparente</CardTitle>
-                  <CardDescription>Económicos y versátiles, ideales para uso general y alimentario.</CardDescription>
-                </CardHeader>
-              </Card>
+            {/* Category Filter */}
+            <div className="flex flex-wrap justify-center gap-4 mb-12">
+              <Button
+                variant={selectedCategory === null ? "default" : "outline"}
+                onClick={() => setSelectedCategory(null)}
+                className="flex items-center gap-2"
+              >
+                <Filter className="w-4 h-4" />
+                Todos los productos
+              </Button>
+              {categories.map((category) => (
+                <Button
+                  key={category.id}
+                  variant={selectedCategory === category.id ? "default" : "outline"}
+                  onClick={() => setSelectedCategory(category.id)}
+                >
+                  {category.nombre}
+                </Button>
+              ))}
             </div>
+
+            {/* Products Grid */}
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600">Cargando productos...</p>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {Object.entries(groupedProducts).map(([productName, productVariants]) => {
+                  const mainProduct = productVariants[0]
+                  const colors = productVariants.map((p) => p.color).filter(Boolean)
+
+                  return (
+                    <Card key={productName} className="overflow-hidden hover:shadow-lg transition-shadow">
+                      <div className="h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center relative">
+                        <Package className="w-16 h-16 text-gray-400" />
+                        <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs">
+                          En Stock
+                        </div>
+                      </div>
+                      <CardHeader className="p-4">
+                        <CardTitle className="text-lg font-semibold text-gray-900 mb-2">{productName}</CardTitle>
+
+                        {/* Colors available */}
+                        {colors.length > 0 && (
+                          <div className="mb-3">
+                            <p className="text-sm text-gray-600 mb-2">Colores disponibles:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {colors.map((color, index) => (
+                                <span
+                                  key={index}
+                                  className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs border"
+                                >
+                                  {color}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between">
+                          <div className="text-lg font-bold text-purple-600">
+                            ${mainProduct.precio?.toFixed(2) || "Consultar"}
+                          </div>
+                          <div className="flex items-center text-yellow-500">
+                            <Star className="w-4 h-4 fill-current" />
+                            <Star className="w-4 h-4 fill-current" />
+                            <Star className="w-4 h-4 fill-current" />
+                            <Star className="w-4 h-4 fill-current" />
+                            <Star className="w-4 h-4 fill-current" />
+                          </div>
+                        </div>
+
+                        <Button className="w-full mt-3 bg-purple-600 hover:bg-purple-700">
+                          <ShoppingCart className="w-4 h-4 mr-2" />
+                          Agregar al Carrito
+                        </Button>
+                      </CardHeader>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </section>
 
@@ -397,9 +520,7 @@ export default function LandingPage() {
 
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
-                    </svg>
+                    <Package className="w-6 h-6 text-white" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">TikTok</h3>
@@ -702,9 +823,7 @@ export default function LandingPage() {
 
               <div className="flex items-center space-x-4">
                 <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
-                  </svg>
+                  <Package className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">TikTok</h3>
