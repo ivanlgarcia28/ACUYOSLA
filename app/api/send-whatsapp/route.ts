@@ -55,19 +55,18 @@ export async function POST(request: NextRequest) {
       to: phoneNumber,
       type: "text",
       text: {
-        body: `¡Hola ${patientName}! 👋
+        body: `¡Hola ${patientName}! 😊
 
-Su consulta ha sido reservada exitosamente:
+Gracias por agendar un turno con Ele Odontología 🦷✨
 
-📅 Fecha: ${appointmentDate}
-🕐 Hora: ${appointmentTime}
+Te esperamos en Caseros 842, Salta el día ${appointmentDate} a las ${appointmentTime} hs 📅⏰
+
 📍 Dirección: Caseros 842, Salta, Argentina
+🕐 Por favor, llegá 10 minutos antes de tu cita
 
-Por favor, llegue 10 minutos antes de su cita.
+Si necesitás reprogramar o cancelar, contactanos con anticipación 📞
 
-Si necesita reprogramar o cancelar, contáctenos con anticipación.
-
-¡La esperamos!
+¡Te esperamos! 💙
 Ele Odontología`,
       },
     }
