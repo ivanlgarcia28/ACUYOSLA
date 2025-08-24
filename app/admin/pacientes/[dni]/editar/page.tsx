@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { supabase } from "@/lib/client"
+import { supabase } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -41,7 +41,7 @@ export default function EditarPacientePage() {
 
   const fetchPaciente = async () => {
     try {
-      const { data, error } = await supabase.from("pacientes").select("*").eq("id", params.id).single()
+      const { data, error } = await supabase.from("pacientes").select("*").eq("dni", params.dni).single()
 
       if (error) throw error
       setPaciente(data)
@@ -78,7 +78,7 @@ export default function EditarPacientePage() {
           telefono: paciente.telefono,
           obra_social: paciente.obra_social,
         })
-        .eq("id", paciente.id)
+        .eq("dni", paciente.dni)
 
       if (error) throw error
 

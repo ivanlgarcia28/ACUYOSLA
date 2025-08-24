@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,13 +8,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { CheckCircle, Info } from "lucide-react"
-import { createClient } from "@/lib/client"
+import { createClient } from "@/lib/supabase/client"
+// import { CreditCard } from 'lucide-react'
+// import StripePaymentForm from "@/components/stripe-payment-form"
 
 interface TimeSlot {
   time: string
   available: boolean
   turno?: any
 }
+
+type BookingStep = "appointment" | "success"
 
 export default function AgendarTurno() {
   const [paciente, setPaciente] = useState<any>(null)
@@ -24,7 +27,9 @@ export default function AgendarTurno() {
   const [observaciones, setObservaciones] = useState("")
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
   const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [currentStep, setCurrentStep] = useState<BookingStep>("appointment")
+  // const [appointmentData, setAppointmentData] = useState<any>(null)
+  // const [depositAmount] = useState(5000)
 
   useEffect(() => {
     const pacienteData = sessionStorage.getItem("paciente")
@@ -58,14 +63,15 @@ export default function AgendarTurno() {
         const time = `${hour.toString().padStart(2, "0")}:00`
         const slotDateTime = new Date(`${selectedDate}T${time}:00`)
 
-        // Check if this slot is occupied
+        // Check if this slot is occupied by active appointments only
         const isOccupied = turnos?.some((turno) => {
           const turnoStart = new Date(turno.fecha_horario_inicio)
           const turnoEnd = new Date(turno.fecha_horario_fin)
           return (
             slotDateTime >= turnoStart &&
             slotDateTime < turnoEnd &&
-            !["cancelado_paciente", "cancelado_consultorio", "reprogramado"].includes(turno.estado)
+            // Only block for active appointment states (not cancelled or rescheduled)
+            ["reservado", "confirmado", "completado"].includes(turno.estado)
           )
         })
 
@@ -102,39 +108,67 @@ export default function AgendarTurno() {
       const fechaInicio = new Date(`${selectedDate}T${selectedTime}:00`)
       const fechaFin = new Date(fechaInicio.getTime() + 60 * 60000) // 60 minutes duration
 
-      const { error } = await supabase.from("turnos").insert({
+      const { error: insertError } = await supabase.from("turnos").insert({
         paciente_dni: paciente.dni,
         tratamiento_id: consultaTratamiento.id,
         fecha_horario_inicio: fechaInicio.toISOString(),
         fecha_horario_fin: fechaFin.toISOString(),
-        estado: "confirmado",
         observaciones,
+        calendar_id: "main",
+        estado: "reservado",
       })
 
-      if (error) throw error
+      if (insertError) throw insertError
 
-      setSuccess(true)
-      // Reset form
+      try {
+        const appointmentDate = new Date(`${selectedDate}T${selectedTime}:00`).toLocaleDateString("es-AR", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+
+        await fetch("/api/send-whatsapp", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            to: paciente.telefono,
+            patientName: paciente.nombre_apellido,
+            appointmentDate,
+            appointmentTime: selectedTime,
+          }),
+        })
+      } catch (whatsappError) {
+        console.error("Error sending WhatsApp confirmation:", whatsappError)
+        // Don't fail the appointment creation if WhatsApp fails
+      }
+
+      setCurrentStep("success")
+
       setSelectedDate("")
       setSelectedTime("")
       setObservaciones("")
     } catch (error) {
       console.error("Error creating appointment:", error)
-      alert("Error al agendar el turno. Intente nuevamente.")
+      alert("Error al crear el turno. Intente nuevamente.")
     } finally {
       setLoading(false)
     }
   }
 
-  if (success) {
+  if (currentStep === "success") {
     return (
       <div className="p-6">
         <Card className="max-w-md mx-auto">
           <CardContent className="pt-6 text-center">
             <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-gray-900 mb-2">¡Turno Agendado!</h2>
-            <p className="text-gray-600 mb-4">Su consulta ha sido confirmada exitosamente.</p>
-            <Button onClick={() => setSuccess(false)}>Agendar Otra Consulta</Button>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">¡Turno Reservado!</h2>
+            <p className="text-gray-600 mb-4">
+              Su consulta ha sido reservada exitosamente. Recibirá una confirmación por email y WhatsApp.
+            </p>
+            <Button onClick={() => setCurrentStep("appointment")}>Agendar Otra Consulta</Button>
           </CardContent>
         </Card>
       </div>
@@ -169,6 +203,8 @@ export default function AgendarTurno() {
             </div>
           </CardContent>
         </Card>
+
+        {/* <Card className="mb-6 border-green-200 bg-green-50"> ... </Card> */}
 
         <Card>
           <CardHeader>
@@ -231,7 +267,7 @@ export default function AgendarTurno() {
               </div>
 
               <Button type="submit" className="w-full" disabled={loading || !selectedDate || !selectedTime}>
-                {loading ? "Agendando..." : "Agendar Consulta"}
+                {loading ? "Creando turno..." : "Reservar Turno"}
               </Button>
             </form>
           </CardContent>

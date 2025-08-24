@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { createClient } from "@/lib/client"
+import { createClient } from "@/lib/supabase/client"
 
 interface Producto {
   id: number
@@ -275,10 +275,10 @@ export default function NuevaVentaPage() {
                     value={item.producto_id.toString()}
                     onValueChange={(value) => actualizarProducto(index, "producto_id", value)}
                   >
-                    <SelectTrigger className="w-full min-w-0">
-                      <SelectValue placeholder="Seleccionar..." className="truncate"/>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar..." />
                     </SelectTrigger>
-                    <SelectContent className="w-full min-w-0">
+                    <SelectContent>
                       {productos.map((producto) => (
                         <SelectItem key={producto.id} value={producto.id.toString()}>
                           {producto.presentacion} (Stock: {producto.stock})

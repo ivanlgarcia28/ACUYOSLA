@@ -132,7 +132,7 @@ export default function LandingPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Sábados</span>
-                  <span className="font-medium">Cerrado</span>
+                  <span className="font-medium">9:00 - 13:00</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Domingos</span>
@@ -167,7 +167,7 @@ export default function LandingPage() {
             <div className="text-center">
               <MapPin className="w-8 h-8 text-red-600 mx-auto mb-4" />
               <h3 className="font-semibold text-gray-900 mb-2">Ubicación</h3>
-              <p className="text-gray-600">Caseros 842, Salta, Argentina</p>
+              <p className="text-gray-600">Salta, Argentina</p>
             </div>
           </div>
         </div>

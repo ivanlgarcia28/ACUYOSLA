@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Plus, Eye, ShoppingCart, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { createClient } from "@/lib/client"
+import { createClient } from "@/lib/supabase/client"
 
 interface Venta {
   id: number

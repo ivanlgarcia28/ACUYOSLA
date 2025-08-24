@@ -6,6 +6,7 @@ import "./globals.css"
 export const metadata: Metadata = {
   title: "Consultorio Dental",
   description: "Sistema de Gestión Dental",
+    generator: 'v0.app'
 }
 
 export default function RootLayout({
