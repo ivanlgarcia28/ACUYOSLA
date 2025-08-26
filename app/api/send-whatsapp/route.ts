@@ -86,6 +86,32 @@ Ele Odontología`,
     if (!response.ok) {
       console.error("WhatsApp API error:", result)
 
+      if (result.error?.message?.includes("Object with ID") && result.error?.message?.includes("does not exist")) {
+        console.log(
+          `❌ WhatsApp Phone Number ID '${phoneNumberId}' does not exist or access token doesn't have permission to use it`,
+        )
+        console.log("📋 To fix this:")
+        console.log("1. Go to Meta Developer Console → WhatsApp → API Setup")
+        console.log("2. Copy the correct Phone Number ID from your WhatsApp Business account")
+        console.log("3. Update WHATSAPP_PHONE_NUMBER_ID environment variable in Vercel")
+        console.log("4. Make sure your access token has permission to use this phone number")
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Invalid WhatsApp Phone Number ID",
+            message:
+              "Appointment created successfully, but WhatsApp notification could not be sent due to incorrect phone number configuration",
+            debug: {
+              phoneNumberId,
+              issue: "Phone Number ID does not exist or access token lacks permission",
+              solution: "Update WHATSAPP_PHONE_NUMBER_ID in environment variables",
+            },
+          },
+          { status: 200 },
+        ) // Return 200 so appointment booking doesn't fail
+      }
+
       if (result.error?.code === 133010 && result.error?.error_subcode === 2593006) {
         console.log(
           "WhatsApp account not registered with Cloud API - appointment will continue without WhatsApp notification",
