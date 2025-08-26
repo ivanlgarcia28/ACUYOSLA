@@ -54,6 +54,9 @@ Ele Odontología`,
     console.log("📤 Sending WhatsApp message to:", phoneNumber)
     console.log("🔗 API URL:", `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`)
 
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+
     // Send WhatsApp message
     const response = await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
       method: "POST",
@@ -62,7 +65,10 @@ Ele Odontología`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(textMessage),
+      signal: controller.signal,
     })
+
+    clearTimeout(timeoutId)
 
     const result = await response.json()
 
@@ -79,30 +85,46 @@ Ele Odontología`,
         result.error?.message?.includes("Object with ID") ||
         result.error?.code === 100
       ) {
-        console.log("🚨 ACCESS TOKEN ISSUE DETECTED:")
-        console.log("❌ Current token doesn't have permission for this phone number")
-        console.log("✅ SOLUTION - Generate System User Token:")
-        console.log("1. Go to Meta Business Manager → Usuarios del sistema")
-        console.log("2. Create or select a System User")
-        console.log("3. Generate Access Token with these permissions:")
-        console.log("   - whatsapp_business_messaging")
-        console.log("   - whatsapp_business_management")
-        console.log("4. Assign WhatsApp Business Account (220889711286590) to this System User")
-        console.log("5. Update WHATSAPP_ACCESS_TOKEN in Vercel with the new token")
-        console.log("6. Make sure phone number 753292091204130 is verified and approved")
+        console.log("🚨 WHATSAPP ACCESS TOKEN PERMISSION ERROR:")
+        console.log("❌ Your current access token doesn't have permission to use phone number:", phoneNumberId)
+        console.log("")
+        console.log("✅ STEP-BY-STEP SOLUTION:")
+        console.log("1. Open Meta Business Manager (business.facebook.com)")
+        console.log("2. Navigate to: Usuarios → Usuarios del sistema")
+        console.log("3. Click 'Agregar' to create a new System User")
+        console.log("4. Name it 'WhatsApp API User' and set role to 'Admin'")
+        console.log("5. Click 'Generar nuevo token' and select these permissions:")
+        console.log("   ✓ whatsapp_business_messaging")
+        console.log("   ✓ whatsapp_business_management")
+        console.log("   ✓ business_management")
+        console.log("6. Assign your WhatsApp Business Account to this System User")
+        console.log("7. Copy the generated token and update WHATSAPP_ACCESS_TOKEN environment variable in Vercel")
+        console.log("8. Redeploy your application")
+        console.log("")
+        console.log("📋 Your WhatsApp Business Account ID: 220889711286590")
+        console.log("📱 Your Phone Number ID: 753292091204130")
 
         return NextResponse.json(
           {
             success: false,
-            error: "WhatsApp access token issue",
+            error: "WhatsApp access token permissions insufficient",
             message:
               "Appointment created successfully, but WhatsApp notification failed due to access token permissions",
+            solution: {
+              step1: "Go to Meta Business Manager → System Users",
+              step2: "Create System User with Admin role",
+              step3:
+                "Generate token with whatsapp_business_messaging, whatsapp_business_management, business_management permissions",
+              step4: "Assign WhatsApp Business Account (220889711286590) to System User",
+              step5: "Update WHATSAPP_ACCESS_TOKEN environment variable in Vercel",
+              phoneNumberId: phoneNumberId,
+              businessAccountId: "220889711286590",
+            },
             debug: {
               phoneNumberId,
               formattedPhone: phoneNumber,
               errorCode: result.error?.code,
               errorMessage: result.error?.message,
-              solution: "Generate System User token in Meta Business Manager with proper permissions",
             },
           },
           { status: 200 }, // Return 200 so appointment booking doesn't fail
@@ -136,6 +158,19 @@ Ele Odontología`,
     return NextResponse.json({ success: true, messageId: result.messages?.[0]?.id })
   } catch (error) {
     console.error("❌ Error sending WhatsApp message:", error)
+
+    if (error.name === "AbortError") {
+      console.log("⏰ WhatsApp API request timed out after 10 seconds")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "WhatsApp API timeout",
+          message: "Appointment created successfully, but WhatsApp notification timed out",
+        },
+        { status: 200 },
+      )
+    }
+
     return NextResponse.json(
       {
         success: false,
