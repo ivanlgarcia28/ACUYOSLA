@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase/client"
+import { NotificationModal, useNotification } from "@/components/ui/notification-modal"
 
 export default function NuevaObraSocialPage() {
   const [formData, setFormData] = useState({
@@ -18,6 +19,7 @@ export default function NuevaObraSocialPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+  const { notification, showNotification, hideNotification } = useNotification()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,7 +33,7 @@ export default function NuevaObraSocialPage() {
       router.push("/admin/obras-sociales")
     } catch (error) {
       console.error("Error creating obra social:", error)
-      alert("Error al crear la obra social")
+      showNotification("Error al crear la obra social", "error")
     } finally {
       setLoading(false)
     }
@@ -83,6 +85,13 @@ export default function NuevaObraSocialPage() {
           </div>
         </form>
       </div>
+      <NotificationModal
+        isOpen={notification.isOpen}
+        onClose={hideNotification}
+        message={notification.message}
+        type={notification.type}
+        title={notification.title}
+      />
     </div>
   )
 }

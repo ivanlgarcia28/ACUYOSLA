@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Save } from "lucide-react"
 import Link from "next/link"
+import { NotificationModal, useNotification } from "@/components/ui/notification-modal"
 
 interface ObraSocial {
   id: number
@@ -33,6 +34,7 @@ export default function EditarPacientePage() {
   const [obrasSociales, setObrasSociales] = useState<ObraSocial[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const { notification, showNotification, hideNotification } = useNotification()
 
   useEffect(() => {
     fetchPaciente()
@@ -85,7 +87,7 @@ export default function EditarPacientePage() {
       router.push("/admin/pacientes")
     } catch (error) {
       console.error("Error updating paciente:", error)
-      alert("Error al actualizar el paciente")
+      showNotification("Error al actualizar el paciente", "error")
     } finally {
       setSaving(false)
     }
@@ -208,6 +210,13 @@ export default function EditarPacientePage() {
           </div>
         </form>
       </div>
+      <NotificationModal
+        isOpen={notification.isOpen}
+        onClose={hideNotification}
+        message={notification.message}
+        type={notification.type}
+        title={notification.title}
+      />
     </div>
   )
 }
