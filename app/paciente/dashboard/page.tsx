@@ -3,7 +3,20 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Clock, User, FileText } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Calendar, Clock, User, FileText, CheckCircle, XCircle, RotateCcw, AlertCircle } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
 interface Turno {
@@ -21,6 +34,16 @@ export default function PacienteDashboard() {
   const [paciente, setPaciente] = useState<any>(null)
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
+
+  // Estados para modales
+  const [cancelDialog, setCancelDialog] = useState(false)
+  const [rescheduleDialog, setRescheduleDialog] = useState(false)
+  const [selectedTurno, setSelectedTurno] = useState<Turno | null>(null)
+  const [cancelReason, setCancelReason] = useState("")
+  const [rescheduleDate, setRescheduleDate] = useState("")
+  const [rescheduleTime, setRescheduleTime] = useState("")
+  const [rescheduleReason, setRescheduleReason] = useState("")
 
   useEffect(() => {
     const pacienteData = sessionStorage.getItem("paciente")
@@ -58,9 +81,119 @@ export default function PacienteDashboard() {
     }
   }
 
+  const getNextAppointment = () => {
+    const now = new Date()
+    return turnos
+      .filter((t) => new Date(t.fecha_horario_inicio) > now && (t.estado === "confirmado" || t.estado === "reservado"))
+      .sort((a, b) => new Date(a.fecha_horario_inicio).getTime() - new Date(b.fecha_horario_inicio).getTime())[0]
+  }
+
+  const canManageAppointment = (fechaInicio: string) => {
+    const appointmentDate = new Date(fechaInicio)
+    const now = new Date()
+    const oneDayBefore = new Date(appointmentDate.getTime() - 24 * 60 * 60 * 1000)
+    return now >= oneDayBefore && appointmentDate > now
+  }
+
+  const handleConfirmAppointment = async (turno: Turno) => {
+    setActionLoading(true)
+    try {
+      const response = await fetch("/api/turnos/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          turnoId: turno.id,
+          pacienteDni: paciente.dni,
+        }),
+      })
+
+      if (response.ok) {
+        await fetchTurnos(paciente.dni)
+        alert("Turno confirmado exitosamente")
+      } else {
+        alert("Error al confirmar el turno")
+      }
+    } catch (error) {
+      console.error("Error:", error)
+      alert("Error al confirmar el turno")
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleCancelAppointment = async () => {
+    if (!selectedTurno) return
+
+    setActionLoading(true)
+    try {
+      const response = await fetch("/api/turnos/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          turnoId: selectedTurno.id,
+          pacienteDni: paciente.dni,
+          motivo: cancelReason,
+        }),
+      })
+
+      if (response.ok) {
+        await fetchTurnos(paciente.dni)
+        setCancelDialog(false)
+        setCancelReason("")
+        setSelectedTurno(null)
+        alert("Turno cancelado exitosamente")
+      } else {
+        alert("Error al cancelar el turno")
+      }
+    } catch (error) {
+      console.error("Error:", error)
+      alert("Error al cancelar el turno")
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleRescheduleAppointment = async () => {
+    if (!selectedTurno || !rescheduleDate || !rescheduleTime) return
+
+    setActionLoading(true)
+    try {
+      const response = await fetch("/api/turnos/reschedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          turnoId: selectedTurno.id,
+          pacienteDni: paciente.dni,
+          nuevaFecha: rescheduleDate,
+          nuevaHora: rescheduleTime,
+          motivo: rescheduleReason,
+        }),
+      })
+
+      if (response.ok) {
+        await fetchTurnos(paciente.dni)
+        setRescheduleDialog(false)
+        setRescheduleDate("")
+        setRescheduleTime("")
+        setRescheduleReason("")
+        setSelectedTurno(null)
+        alert("Turno reprogramado exitosamente")
+      } else {
+        alert("Error al reprogramar el turno")
+      }
+    } catch (error) {
+      console.error("Error:", error)
+      alert("Error al reprogramar el turno")
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   const getEstadoBadge = (estado: string) => {
     const colors = {
       confirmado: "bg-blue-100 text-blue-800",
+      confirmado_paciente: "bg-green-100 text-green-800",
+      reservado: "bg-yellow-100 text-yellow-800",
       completado: "bg-green-100 text-green-800",
       asistio: "bg-green-100 text-green-800",
       no_asistio_con_justificativo: "bg-yellow-100 text-yellow-800",
@@ -68,6 +201,7 @@ export default function PacienteDashboard() {
       cancelado_paciente: "bg-gray-100 text-gray-800",
       cancelado_consultorio: "bg-gray-100 text-gray-800",
       reprogramado: "bg-purple-100 text-purple-800",
+      reprogramado_paciente: "bg-purple-100 text-purple-800",
     }
     return colors[estado as keyof typeof colors] || "bg-gray-100 text-gray-800"
   }
@@ -102,6 +236,8 @@ export default function PacienteDashboard() {
     )
   }
 
+  const nextAppointment = getNextAppointment()
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center space-x-3">
@@ -111,6 +247,164 @@ export default function PacienteDashboard() {
           <p className="text-gray-600">DNI: {paciente?.dni}</p>
         </div>
       </div>
+
+      {nextAppointment && (
+        <Card className="border-l-4 border-l-blue-500 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <AlertCircle className="h-5 w-5 text-blue-600" />
+              <span>Próximo Turno</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-4 w-4 text-gray-500" />
+                  <span className="font-medium">{formatDate(nextAppointment.fecha_horario_inicio)}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Clock className="h-4 w-4 text-gray-500" />
+                  <span>
+                    {formatTime(nextAppointment.fecha_horario_inicio)} - {formatTime(nextAppointment.fecha_horario_fin)}
+                  </span>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">
+                    {nextAppointment.tratamientos?.nombre || "Tratamiento no especificado"}
+                  </p>
+                  <Badge className={getEstadoBadge(nextAppointment.estado)}>
+                    {nextAppointment.estado.replace(/_/g, " ")}
+                  </Badge>
+                </div>
+              </div>
+
+              {canManageAppointment(nextAppointment.fecha_horario_inicio) && (
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600 mb-3">Gestiona tu turno:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {nextAppointment.estado !== "confirmado_paciente" && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleConfirmAppointment(nextAppointment)}
+                        disabled={actionLoading}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Confirmar Asistencia
+                      </Button>
+                    )}
+
+                    <Dialog open={cancelDialog} onOpenChange={setCancelDialog}>
+                      <DialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => setSelectedTurno(nextAppointment)}
+                          disabled={actionLoading}
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Cancelar Turno
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Cancelar Turno</DialogTitle>
+                          <DialogDescription>
+                            ¿Estás seguro que deseas cancelar tu turno? Esta acción no se puede deshacer.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="cancel-reason">Motivo de cancelación (opcional)</Label>
+                            <Textarea
+                              id="cancel-reason"
+                              value={cancelReason}
+                              onChange={(e) => setCancelReason(e.target.value)}
+                              placeholder="Explica brevemente el motivo..."
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setCancelDialog(false)}>
+                            Volver
+                          </Button>
+                          <Button variant="destructive" onClick={handleCancelAppointment} disabled={actionLoading}>
+                            Cancelar Turno
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={rescheduleDialog} onOpenChange={setRescheduleDialog}>
+                      <DialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedTurno(nextAppointment)}
+                          disabled={actionLoading}
+                        >
+                          <RotateCcw className="h-4 w-4 mr-1" />
+                          Reprogramar
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Reprogramar Turno</DialogTitle>
+                          <DialogDescription>Selecciona una nueva fecha y hora para tu turno.</DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="reschedule-date">Nueva Fecha</Label>
+                              <Input
+                                id="reschedule-date"
+                                type="date"
+                                value={rescheduleDate}
+                                onChange={(e) => setRescheduleDate(e.target.value)}
+                                min={new Date().toISOString().split("T")[0]}
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="reschedule-time">Nueva Hora</Label>
+                              <Input
+                                id="reschedule-time"
+                                type="time"
+                                value={rescheduleTime}
+                                onChange={(e) => setRescheduleTime(e.target.value)}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <Label htmlFor="reschedule-reason">Motivo (opcional)</Label>
+                            <Textarea
+                              id="reschedule-reason"
+                              value={rescheduleReason}
+                              onChange={(e) => setRescheduleReason(e.target.value)}
+                              placeholder="Explica brevemente el motivo..."
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setRescheduleDialog(false)}>
+                            Cancelar
+                          </Button>
+                          <Button
+                            onClick={handleRescheduleAppointment}
+                            disabled={actionLoading || !rescheduleDate || !rescheduleTime}
+                          >
+                            Reprogramar Turno
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card>
@@ -129,13 +423,8 @@ export default function PacienteDashboard() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {turnos.find((t) => new Date(t.fecha_horario_inicio) > new Date() && t.estado === "confirmado") ? (
-              <div className="text-sm">
-                {formatDate(
-                  turnos.find((t) => new Date(t.fecha_horario_inicio) > new Date() && t.estado === "confirmado")!
-                    .fecha_horario_inicio,
-                )}
-              </div>
+            {nextAppointment ? (
+              <div className="text-sm">{formatDate(nextAppointment.fecha_horario_inicio)}</div>
             ) : (
               <div className="text-sm text-gray-500">No hay turnos próximos</div>
             )}
