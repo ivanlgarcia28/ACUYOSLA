@@ -99,8 +99,8 @@ export default function PacienteDashboard() {
 
     const appointmentDate = new Date(fechaInicio)
     const now = new Date()
-    const oneDayBefore = new Date(appointmentDate.getTime() - 24 * 60 * 60 * 1000)
-    return now >= oneDayBefore && appointmentDate > now
+    // Only check if appointment is in the future, remove 24-hour restriction
+    return appointmentDate > now
   }
 
   const handleConfirmAppointment = async (turno: Turno) => {
@@ -532,7 +532,153 @@ export default function PacienteDashboard() {
                         )}
                       </div>
                     </div>
-                    <Badge className={getEstadoBadge(turno.estado)}>{turno.estado.replace(/_/g, " ")}</Badge>
+                    <div className="flex flex-col items-end space-y-2">
+                      <Badge className={getEstadoBadge(turno.estado)}>{turno.estado.replace(/_/g, " ")}</Badge>
+
+                      {canManageAppointment(turno.fecha_horario_inicio, turno.estado) ? (
+                        <div className="flex flex-wrap gap-1">
+                          <Button
+                            size="sm"
+                            onClick={() => handleConfirmAppointment(turno)}
+                            disabled={actionLoading}
+                            className="bg-green-600 hover:bg-green-700 text-xs px-2 py-1"
+                          >
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Confirmar
+                          </Button>
+
+                          <Dialog open={cancelDialog} onOpenChange={setCancelDialog}>
+                            <DialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => setSelectedTurno(turno)}
+                                disabled={actionLoading}
+                                className="text-xs px-2 py-1"
+                              >
+                                <XCircle className="h-3 w-3 mr-1" />
+                                Cancelar
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Cancelar Turno</DialogTitle>
+                                <DialogDescription>
+                                  ¿Estás seguro que deseas cancelar tu turno? Esta acción no se puede deshacer.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div>
+                                  <Label htmlFor="cancel-reason">Motivo de cancelación (opcional)</Label>
+                                  <Textarea
+                                    id="cancel-reason"
+                                    value={cancelReason}
+                                    onChange={(e) => setCancelReason(e.target.value)}
+                                    placeholder="Explica brevemente el motivo..."
+                                  />
+                                </div>
+                              </div>
+                              <DialogFooter>
+                                <Button variant="outline" onClick={() => setCancelDialog(false)}>
+                                  Volver
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  onClick={handleCancelAppointment}
+                                  disabled={actionLoading}
+                                >
+                                  Cancelar Turno
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+
+                          <Dialog open={rescheduleDialog} onOpenChange={setRescheduleDialog}>
+                            <DialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setSelectedTurno(turno)}
+                                disabled={actionLoading}
+                                className="text-xs px-2 py-1"
+                              >
+                                <RotateCcw className="h-3 w-3 mr-1" />
+                                Reprogramar
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Reprogramar Turno</DialogTitle>
+                                <DialogDescription>Selecciona una nueva fecha y hora para tu turno.</DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <Label htmlFor="reschedule-date">Nueva Fecha</Label>
+                                    <Input
+                                      id="reschedule-date"
+                                      type="date"
+                                      value={rescheduleDate}
+                                      onChange={(e) => setRescheduleDate(e.target.value)}
+                                      min={new Date().toISOString().split("T")[0]}
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="reschedule-time">Nueva Hora</Label>
+                                    <Input
+                                      id="reschedule-time"
+                                      type="time"
+                                      value={rescheduleTime}
+                                      onChange={(e) => setRescheduleTime(e.target.value)}
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <Label htmlFor="reschedule-reason">Motivo (opcional)</Label>
+                                  <Textarea
+                                    id="reschedule-reason"
+                                    value={rescheduleReason}
+                                    onChange={(e) => setRescheduleReason(e.target.value)}
+                                    placeholder="Explica brevemente el motivo..."
+                                  />
+                                </div>
+                              </div>
+                              <DialogFooter>
+                                <Button variant="outline" onClick={() => setRescheduleDialog(false)}>
+                                  Cancelar
+                                </Button>
+                                <Button
+                                  onClick={handleRescheduleAppointment}
+                                  disabled={actionLoading || !rescheduleDate || !rescheduleTime}
+                                >
+                                  Reprogramar Turno
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                      ) : (
+                        (() => {
+                          const statusMessage = getStatusMessage(turno.estado)
+                          if (statusMessage) {
+                            return (
+                              <div
+                                className={`p-2 rounded text-xs max-w-xs ${
+                                  statusMessage.type === "success"
+                                    ? "bg-green-50 border border-green-200 text-green-800"
+                                    : statusMessage.type === "error"
+                                      ? "bg-red-50 border border-red-200 text-red-800"
+                                      : "bg-blue-50 border border-blue-200 text-blue-800"
+                                }`}
+                              >
+                                {statusMessage.message}
+                              </div>
+                            )
+                          }
+                          return null
+                        })()
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
