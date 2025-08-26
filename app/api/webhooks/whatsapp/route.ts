@@ -77,13 +77,14 @@ function verifyWebhookSignature(body: any, signature: string): boolean {
 // Verification endpoint for webhook setup
 export async function GET(request: NextRequest) {
   try {
-    console.log("[v0] WhatsApp webhook GET request received")
-    console.log("[v0] Request URL:", request.url)
-    console.log("[v0] User-Agent:", request.headers.get("user-agent"))
+    console.log("🔔 [WEBHOOK] WhatsApp webhook GET request received")
+    console.log("🔗 [WEBHOOK] Request URL:", request.url)
+    console.log("🤖 [WEBHOOK] User-Agent:", request.headers.get("user-agent"))
+    console.log("📅 [WEBHOOK] Timestamp:", new Date().toISOString())
 
     const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN
-    console.log("[v0] Environment WHATSAPP_VERIFY_TOKEN exists:", !!verifyToken)
-    console.log("[v0] Environment WHATSAPP_VERIFY_TOKEN value:", verifyToken)
+    console.log("🔑 [WEBHOOK] Environment WHATSAPP_VERIFY_TOKEN exists:", !!verifyToken)
+    console.log("🔑 [WEBHOOK] Environment WHATSAPP_VERIFY_TOKEN value:", verifyToken)
 
     // Parse URL manually to handle edge cases
     const url = new URL(request.url)
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
     const token = url.searchParams.get("hub.verify_token")
     const challenge = url.searchParams.get("hub.challenge")
 
-    console.log("[v0] Webhook verification params:", {
+    console.log("📋 [WEBHOOK] Webhook verification params:", {
       mode,
       token,
       challenge: challenge ? `${challenge.substring(0, 10)}...` : null,
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!verifyToken) {
-      console.error("[v0] WHATSAPP_VERIFY_TOKEN environment variable not set")
+      console.error("❌ [WEBHOOK] WHATSAPP_VERIFY_TOKEN environment variable not set")
       return NextResponse.json(
         {
           error: "Server configuration error",
@@ -111,6 +112,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!mode && !token && !challenge) {
+      console.log("ℹ️ [WEBHOOK] Direct access - showing webhook info")
       return NextResponse.json(
         {
           status: "WhatsApp Webhook Active",
@@ -128,7 +130,8 @@ export async function GET(request: NextRequest) {
     }
 
     if (mode === "subscribe" && token === verifyToken) {
-      console.log("[v0] Webhook verification successful - returning challenge")
+      console.log("✅ [WEBHOOK] Webhook verification successful - returning challenge")
+      console.log("🎯 [WEBHOOK] Challenge returned:", challenge)
       return new Response(challenge, {
         status: 200,
         headers: {
@@ -137,9 +140,9 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    console.log("[v0] Webhook verification failed")
-    console.log("[v0] Mode check:", mode === "subscribe")
-    console.log("[v0] Token check:", token === verifyToken)
+    console.log("❌ [WEBHOOK] Webhook verification failed")
+    console.log("🔍 [WEBHOOK] Mode check:", mode === "subscribe")
+    console.log("🔍 [WEBHOOK] Token check:", token === verifyToken)
 
     return NextResponse.json(
       {
@@ -156,7 +159,7 @@ export async function GET(request: NextRequest) {
       { status: 403 },
     )
   } catch (error) {
-    console.error("[v0] WhatsApp webhook GET error:", error)
+    console.error("💥 [WEBHOOK] WhatsApp webhook GET error:", error)
     return NextResponse.json(
       {
         error: "Internal server error",
