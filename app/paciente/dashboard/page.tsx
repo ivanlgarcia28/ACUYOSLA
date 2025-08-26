@@ -79,6 +79,7 @@ export default function PacienteDashboard() {
           )
         `)
         .eq("paciente_dni", dni)
+        .neq("estado", "reprogramado_paciente")
         .order("fecha_horario_inicio", { ascending: false })
 
       if (error) throw error

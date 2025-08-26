@@ -23,17 +23,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Turno no encontrado" }, { status: 404 })
     }
 
-    // Calcular nueva fecha y hora de fin (asumiendo 1 hora de duración)
-    const nuevaFechaInicio = new Date(`${nuevaFecha}T${nuevaHora}:00`)
-    const nuevaFechaFin = new Date(nuevaFechaInicio.getTime() + 60 * 60 * 1000)
-
-    // Actualizar el turno con nueva fecha y estado
     const { error: updateError } = await supabase
       .from("turnos")
       .update({
         estado: "reprogramado_paciente",
-        fecha_horario_inicio: nuevaFechaInicio.toISOString(),
-        fecha_horario_fin: nuevaFechaFin.toISOString(),
         observaciones: motivo || "Reprogramado por el paciente",
         modified_at: new Date().toISOString(),
       })
@@ -44,7 +37,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Error al reprogramar el turno" }, { status: 500 })
     }
 
-    // Registrar en historial
+    const nuevaFechaInicio = new Date(`${nuevaFecha}T${nuevaHora}:00`)
+    const nuevaFechaFin = new Date(nuevaFechaInicio.getTime() + 60 * 60 * 1000)
+
+    const { data: nuevoTurno, error: createError } = await supabase
+      .from("turnos")
+      .insert({
+        paciente_dni: pacienteDni,
+        tratamiento_id: turno.tratamiento_id,
+        fecha_horario_inicio: nuevaFechaInicio.toISOString(),
+        fecha_horario_fin: nuevaFechaFin.toISOString(),
+        estado: "reservado",
+        observaciones: `Reprogramado desde ${new Date(turno.fecha_horario_inicio).toLocaleDateString()}. ${motivo || ""}`,
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+
+    if (createError) {
+      console.error("Error creating new turno:", createError)
+      return NextResponse.json({ error: "Error al crear el nuevo turno" }, { status: 500 })
+    }
+
+    // Registrar en historial del turno original
     await supabase.from("turnos_status_history").insert({
       turno_id: turnoId,
       status: "reprogramado_paciente",
@@ -52,9 +67,17 @@ export async function POST(request: NextRequest) {
       changed_at: new Date().toISOString(),
     })
 
+    await supabase.from("turnos_status_history").insert({
+      turno_id: nuevoTurno.id,
+      status: "reservado",
+      notes: `Nuevo turno creado por reprogramación del turno #${turnoId}`,
+      changed_at: new Date().toISOString(),
+    })
+
     return NextResponse.json({
       success: true,
       message: "Turno reprogramado exitosamente",
+      nuevoTurnoId: nuevoTurno.id,
     })
   } catch (error) {
     console.error("Error rescheduling appointment:", error)
