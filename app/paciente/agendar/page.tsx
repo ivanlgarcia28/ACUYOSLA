@@ -128,7 +128,7 @@ export default function AgendarTurno() {
           day: "numeric",
         })
 
-        await fetch("/api/send-whatsapp", {
+        const whatsappResponse = await fetch("/api/send-whatsapp", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -140,6 +140,14 @@ export default function AgendarTurno() {
             appointmentTime: selectedTime,
           }),
         })
+
+        const whatsappResult = await whatsappResponse.json()
+
+        if (!whatsappResult.success) {
+          console.log("WhatsApp notification not sent:", whatsappResult.message || whatsappResult.error)
+        } else {
+          console.log("WhatsApp confirmation sent successfully")
+        }
       } catch (whatsappError) {
         console.error("Error sending WhatsApp confirmation:", whatsappError)
         // Don't fail the appointment creation if WhatsApp fails

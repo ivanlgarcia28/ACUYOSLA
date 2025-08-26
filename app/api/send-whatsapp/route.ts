@@ -85,6 +85,21 @@ Ele Odontología`,
 
     if (!response.ok) {
       console.error("WhatsApp API error:", result)
+
+      if (result.error?.code === 133010 && result.error?.error_subcode === 2593006) {
+        console.log(
+          "WhatsApp account not registered with Cloud API - appointment will continue without WhatsApp notification",
+        )
+        return NextResponse.json(
+          {
+            success: false,
+            error: "WhatsApp account not registered",
+            message: "Appointment created successfully, but WhatsApp notification could not be sent",
+          },
+          { status: 200 },
+        ) // Return 200 so appointment booking doesn't fail
+      }
+
       return NextResponse.json({ error: "Failed to send WhatsApp message", details: result }, { status: 400 })
     }
 
