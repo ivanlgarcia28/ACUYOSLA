@@ -128,6 +128,11 @@ export default function AgendarTurno() {
           day: "numeric",
         })
 
+        console.log("[v0] Sending WhatsApp confirmation...")
+
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+
         const whatsappResponse = await fetch("/api/send-whatsapp", {
           method: "POST",
           headers: {
@@ -139,27 +144,43 @@ export default function AgendarTurno() {
             appointmentDate,
             appointmentTime: selectedTime,
           }),
+          signal: controller.signal,
         })
 
+        clearTimeout(timeoutId)
+
+        if (!whatsappResponse.ok) {
+          console.log(`[v0] WhatsApp API returned status: ${whatsappResponse.status}`)
+          const errorText = await whatsappResponse.text()
+          console.log("[v0] WhatsApp API error response:", errorText)
+          throw new Error(`WhatsApp API error: ${whatsappResponse.status}`)
+        }
+
         const whatsappResult = await whatsappResponse.json()
+        console.log("[v0] WhatsApp API response:", whatsappResult)
 
         if (!whatsappResult.success) {
-          console.log("WhatsApp notification not sent:", whatsappResult.message || whatsappResult.error)
+          console.log("[v0] WhatsApp notification not sent:", whatsappResult.message || whatsappResult.error)
         } else {
-          console.log("WhatsApp confirmation sent successfully")
+          console.log("[v0] WhatsApp confirmation sent successfully")
         }
       } catch (whatsappError) {
-        console.error("Error sending WhatsApp confirmation:", whatsappError)
+        if (whatsappError.name === "AbortError") {
+          console.error("[v0] WhatsApp request timed out")
+        } else {
+          console.error("[v0] Error sending WhatsApp confirmation:", whatsappError)
+        }
         // Don't fail the appointment creation if WhatsApp fails
       }
 
+      console.log("[v0] Appointment created successfully, moving to success step")
       setCurrentStep("success")
 
       setSelectedDate("")
       setSelectedTime("")
       setObservaciones("")
     } catch (error) {
-      console.error("Error creating appointment:", error)
+      console.error("[v0] Error creating appointment:", error)
       alert("Error al crear el turno. Intente nuevamente.")
     } finally {
       setLoading(false)
