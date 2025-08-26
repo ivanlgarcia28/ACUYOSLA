@@ -351,7 +351,7 @@ export default function PacienteLogin() {
           <div className="mt-6 text-center text-sm text-gray-600">
             <p>¿Necesita ayuda?</p>
             <a
-              href="https://wa.me/5493875350665"
+              href="https://wa.me/5493875350657"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"

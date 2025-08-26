@@ -1,3 +1,4 @@
+/*
 import { type NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 
@@ -36,4 +37,11 @@ export async function POST(request: NextRequest) {
     console.error("[v0] Error creating payment intent:", error)
     return NextResponse.json({ error: "Error creating payment intent" }, { status: 500 })
   }
+}
+*/
+
+import { NextResponse } from "next/server"
+
+export async function POST() {
+  return NextResponse.json({ error: "Payment functionality is currently disabled" }, { status: 503 })
 }

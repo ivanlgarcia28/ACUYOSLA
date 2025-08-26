@@ -3,10 +3,115 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Calendar, Users, FileText, CreditCard, Shield, Clock, Bluetooth as Tooth, Stethoscope, Heart, Zap } from 'lucide-react'
+import {
+  Calendar,
+  Users,
+  FileText,
+  CreditCard,
+  Shield,
+  Clock,
+  Bluetooth as Tooth,
+  Stethoscope,
+  Heart,
+  Zap,
+  Package,
+} from "lucide-react"
 import { useEffect } from "react"
 
+/*
+import { ShoppingCart, ArrowRight, Truck, DollarSign, Star, Filter } from 'lucide-react'
+import { useState } from "react"
+import { createClient } from "@supabase/supabase-js"
+
+type BusinessType = "home" | "odontologia" | "guantes"
+
+interface Category {
+  id: number
+  nombre: string
+  descripcion: string
+  activa: boolean
+}
+
+interface Product {
+  id: number
+  nombre: string
+  descripcion: string
+  precio: number
+  color: string
+  categoria_id: number
+  marca: string
+  presentacion: string
+  stock: number
+}
+*/
+
 export default function LandingPage() {
+  /*
+  const [currentView, setCurrentView] = useState<BusinessType>("home")
+  const [categories, setCategories] = useState<Category[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
+  useEffect(() => {
+    if (currentView === "guantes") {
+      fetchCategories()
+      fetchProducts()
+    }
+  }, [currentView])
+
+  const fetchCategories = async () => {
+    try {
+      const { data, error } = await supabase.from("categorias_productos").select("*").eq("activa", true).order("nombre")
+
+      if (error) throw error
+      setCategories(data || [])
+    } catch (error) {
+      console.error("Error fetching categories:", error)
+    }
+  }
+
+  const fetchProducts = async () => {
+    setLoading(true)
+    try {
+      let query = supabase.from("productos").select("*").order("nombre")
+
+      if (selectedCategory) {
+        query = query.eq("categoria_id", selectedCategory)
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+      setProducts(data || [])
+    } catch (error) {
+      console.error("Error fetching products:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (currentView === "guantes") {
+      fetchProducts()
+    }
+  }, [selectedCategory])
+
+  const groupedProducts = products.reduce(
+    (acc, product) => {
+      const key = product.nombre
+      if (!acc[key]) {
+        acc[key] = []
+      }
+      acc[key].push(product)
+      return acc
+    },
+    {} as Record<string, Product[]>,
+  )
+  */
+
   useEffect(() => {
     console.log("[v0] Landing page loaded successfully")
     console.log("[v0] Current URL:", window.location.href)
@@ -23,7 +128,6 @@ export default function LandingPage() {
     window.addEventListener("beforeunload", handleBeforeUnload)
     window.addEventListener("popstate", handlePopState)
 
-    // Check if there are any automatic redirects after a delay
     setTimeout(() => {
       console.log("[v0] Still on landing page after 2 seconds - no automatic redirect")
     }, 2000)
@@ -41,6 +145,26 @@ export default function LandingPage() {
     }
   }
 
+  /*
+  // Business Selection Screen
+  if (currentView === "home") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+        // ... Business selection screen code ...
+      </div>
+    )
+  }
+
+  // Ele Guantes View
+  if (currentView === "guantes") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-white">
+        // ... Ele Guantes view code ...
+      </div>
+    )
+  }
+  */
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
       {/* Header */}
@@ -51,9 +175,6 @@ export default function LandingPage() {
               <span className="text-white font-bold text-sm">E</span>
             </div>
             <span className="text-xl font-bold text-gray-900">Ele Odontología</span>
-          </div>
-          <div className="text-sm text-gray-600">
-            Powered by <span className="font-semibold text-blue-600">ACUYO SLA</span>
           </div>
         </div>
       </header>
@@ -277,9 +398,7 @@ export default function LandingPage() {
 
               <div className="flex items-center space-x-4">
                 <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
-                  </svg>
+                  <Package className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">TikTok</h3>

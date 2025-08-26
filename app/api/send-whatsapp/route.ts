@@ -55,19 +55,18 @@ export async function POST(request: NextRequest) {
       to: phoneNumber,
       type: "text",
       text: {
-        body: `¡Hola ${patientName}! 👋
+        body: `¡Hola ${patientName}! 😊
 
-Su consulta ha sido reservada exitosamente:
+Gracias por agendar un turno con Ele Odontología 🦷✨
 
-📅 Fecha: ${appointmentDate}
-🕐 Hora: ${appointmentTime}
+Te esperamos en Caseros 842, Salta el día ${appointmentDate} a las ${appointmentTime} hs 📅⏰
+
 📍 Dirección: Caseros 842, Salta, Argentina
+🕐 Por favor, llegá 10 minutos antes de tu cita
 
-Por favor, llegue 10 minutos antes de su cita.
+Si necesitás reprogramar o cancelar, contactanos con anticipación 📞
 
-Si necesita reprogramar o cancelar, contáctenos con anticipación.
-
-¡La esperamos!
+¡Te esperamos! 💙
 Ele Odontología`,
       },
     }
@@ -86,6 +85,21 @@ Ele Odontología`,
 
     if (!response.ok) {
       console.error("WhatsApp API error:", result)
+
+      if (result.error?.code === 133010 && result.error?.error_subcode === 2593006) {
+        console.log(
+          "WhatsApp account not registered with Cloud API - appointment will continue without WhatsApp notification",
+        )
+        return NextResponse.json(
+          {
+            success: false,
+            error: "WhatsApp account not registered",
+            message: "Appointment created successfully, but WhatsApp notification could not be sent",
+          },
+          { status: 200 },
+        ) // Return 200 so appointment booking doesn't fail
+      }
+
       return NextResponse.json({ error: "Failed to send WhatsApp message", details: result }, { status: 400 })
     }
 

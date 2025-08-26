@@ -1,3 +1,4 @@
+/*
 "use client"
 
 import type React from "react"
@@ -193,5 +194,29 @@ export default function StripePaymentForm({ amount, appointmentData, onSuccess, 
         onError={onError}
       />
     </Elements>
+  )
+}
+*/
+
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+
+interface StripePaymentFormProps {
+  amount: number
+  appointmentData: any
+  onSuccess: () => void
+  onError: (error: string) => void
+}
+
+export default function StripePaymentForm({ amount, appointmentData, onSuccess, onError }: StripePaymentFormProps) {
+  return (
+    <Card className="w-full max-w-md mx-auto">
+      <CardContent className="pt-6">
+        <p className="text-center text-muted-foreground mb-4">Funcionalidad de pagos temporalmente deshabilitada</p>
+        <Button onClick={onSuccess} className="w-full">
+          Continuar sin Pago
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
