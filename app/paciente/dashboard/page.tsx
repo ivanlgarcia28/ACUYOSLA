@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, Clock, User, FileText, CheckCircle, XCircle, RotateCcw, AlertCircle } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -28,6 +29,11 @@ interface Turno {
     nombre: string
     descripcion: string
   }
+}
+
+interface TimeSlot {
+  value: string
+  label: string
 }
 
 export default function PacienteDashboard() {
@@ -44,6 +50,9 @@ export default function PacienteDashboard() {
   const [rescheduleDate, setRescheduleDate] = useState("")
   const [rescheduleTime, setRescheduleTime] = useState("")
   const [rescheduleReason, setRescheduleReason] = useState("")
+
+  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([])
+  const [loadingSlots, setLoadingSlots] = useState(false)
 
   useEffect(() => {
     const pacienteData = sessionStorage.getItem("paciente")
@@ -185,6 +194,7 @@ export default function PacienteDashboard() {
         setRescheduleTime("")
         setRescheduleReason("")
         setSelectedTurno(null)
+        setAvailableSlots([])
         alert("Turno reprogramado exitosamente")
       } else {
         alert("Error al reprogramar el turno")
@@ -251,6 +261,33 @@ export default function PacienteDashboard() {
       minute: "2-digit",
     })
   }
+
+  const fetchAvailableSlots = async (fecha: string) => {
+    if (!fecha) return
+
+    setLoadingSlots(true)
+    try {
+      const response = await fetch(`/api/turnos/available-slots?fecha=${fecha}`)
+      if (response.ok) {
+        const data = await response.json()
+        setAvailableSlots(data.availableSlots || [])
+      } else {
+        console.error("Error fetching available slots")
+        setAvailableSlots([])
+      }
+    } catch (error) {
+      console.error("Error fetching available slots:", error)
+      setAvailableSlots([])
+    } finally {
+      setLoadingSlots(false)
+    }
+  }
+
+  useEffect(() => {
+    if (rescheduleDate) {
+      fetchAvailableSlots(rescheduleDate)
+    }
+  }, [rescheduleDate])
 
   if (loading) {
     return (
@@ -395,12 +432,32 @@ export default function PacienteDashboard() {
                             </div>
                             <div>
                               <Label htmlFor="reschedule-time">Nueva Hora</Label>
-                              <Input
-                                id="reschedule-time"
-                                type="time"
+                              <Select
                                 value={rescheduleTime}
-                                onChange={(e) => setRescheduleTime(e.target.value)}
-                              />
+                                onValueChange={setRescheduleTime}
+                                disabled={!rescheduleDate || loadingSlots}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue
+                                    placeholder={
+                                      loadingSlots
+                                        ? "Cargando horarios..."
+                                        : !rescheduleDate
+                                          ? "Selecciona una fecha primero"
+                                          : availableSlots.length === 0
+                                            ? "No hay horarios disponibles"
+                                            : "Selecciona un horario"
+                                    }
+                                  />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableSlots.map((slot) => (
+                                    <SelectItem key={slot.value} value={slot.value}>
+                                      {slot.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
                           </div>
                           <div>
@@ -625,12 +682,32 @@ export default function PacienteDashboard() {
                                   </div>
                                   <div>
                                     <Label htmlFor="reschedule-time">Nueva Hora</Label>
-                                    <Input
-                                      id="reschedule-time"
-                                      type="time"
+                                    <Select
                                       value={rescheduleTime}
-                                      onChange={(e) => setRescheduleTime(e.target.value)}
-                                    />
+                                      onValueChange={setRescheduleTime}
+                                      disabled={!rescheduleDate || loadingSlots}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue
+                                          placeholder={
+                                            loadingSlots
+                                              ? "Cargando horarios..."
+                                              : !rescheduleDate
+                                                ? "Selecciona una fecha primero"
+                                                : availableSlots.length === 0
+                                                  ? "No hay horarios disponibles"
+                                                  : "Selecciona un horario"
+                                          }
+                                        />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {availableSlots.map((slot) => (
+                                          <SelectItem key={slot.value} value={slot.value}>
+                                            {slot.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                   </div>
                                 </div>
                                 <div>
