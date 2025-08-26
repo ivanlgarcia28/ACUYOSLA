@@ -91,18 +91,21 @@ Ele Odontología`,
         console.log("✅ STEP-BY-STEP SOLUTION:")
         console.log("1. Open Meta Business Manager (business.facebook.com)")
         console.log("2. Navigate to: Usuarios → Usuarios del sistema")
-        console.log("3. Click 'Agregar' to create a new System User")
-        console.log("4. Name it 'WhatsApp API User' and set role to 'Admin'")
-        console.log("5. Click 'Generar nuevo token' and select these permissions:")
+        console.log("3. Click your existing 'admin' system user (ID: 61580071521809)")
+        console.log("4. Click 'Generar tokens de acceso' and select these permissions:")
         console.log("   ✓ whatsapp_business_messaging")
         console.log("   ✓ whatsapp_business_management")
         console.log("   ✓ business_management")
-        console.log("6. Assign your WhatsApp Business Account to this System User")
-        console.log("7. Copy the generated token and update WHATSAPP_ACCESS_TOKEN environment variable in Vercel")
-        console.log("8. Redeploy your application")
+        console.log("5. 🔥 CRITICAL: Click 'Assigned assets' tab")
+        console.log("6. 🔥 CRITICAL: Add your WhatsApp Business Account (220889711286590)")
+        console.log("7. Make sure the account shows 'Control total' permissions")
+        console.log("8. Copy the generated token and update WHATSAPP_ACCESS_TOKEN in Vercel")
+        console.log("9. Redeploy your application")
         console.log("")
+        console.log("⚠️  COMMON MISTAKE: Creating token without assigning WhatsApp Business Account")
         console.log("📋 Your WhatsApp Business Account ID: 220889711286590")
         console.log("📱 Your Phone Number ID: 753292091204130")
+        console.log("👤 Your System User ID: 61580071521809")
 
         return NextResponse.json(
           {
@@ -111,19 +114,22 @@ Ele Odontología`,
             message:
               "Appointment created successfully, but WhatsApp notification failed due to access token permissions",
             solution: {
-              step1: "Go to Meta Business Manager → System Users",
-              step2: "Create System User with Admin role",
-              step3:
+              step1: "Go to Meta Business Manager → System Users → admin (61580071521809)",
+              step2:
                 "Generate token with whatsapp_business_messaging, whatsapp_business_management, business_management permissions",
-              step4: "Assign WhatsApp Business Account (220889711286590) to System User",
+              step3: "CRITICAL: Go to 'Assigned assets' tab and add WhatsApp Business Account (220889711286590)",
+              step4: "Ensure account has 'Control total' permissions",
               step5: "Update WHATSAPP_ACCESS_TOKEN environment variable in Vercel",
+              commonMistake: "Token created without assigning WhatsApp Business Account to System User",
               phoneNumberId: phoneNumberId,
               businessAccountId: "220889711286590",
+              systemUserId: "61580071521809",
             },
             debug: {
               phoneNumberId,
               formattedPhone: phoneNumber,
               errorCode: result.error?.code,
+              errorSubcode: result.error?.error_subcode,
               errorMessage: result.error?.message,
             },
           },
