@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     console.log(`📞 Recipient phone: ${to}`)
 
     if (!accessToken || !phoneNumberId) {
-      console.error("❌ Missing WhatsApp credentials")
+      console.log("⚠️ WhatsApp credentials not configured - appointment will continue without notification")
       return NextResponse.json(
         {
           success: false,
