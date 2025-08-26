@@ -84,11 +84,19 @@ export default function PacienteDashboard() {
   const getNextAppointment = () => {
     const now = new Date()
     return turnos
-      .filter((t) => new Date(t.fecha_horario_inicio) > now && (t.estado === "confirmado" || t.estado === "reservado"))
+      .filter(
+        (t) =>
+          new Date(t.fecha_horario_inicio) > now &&
+          (t.estado === "confirmado" || t.estado === "reservado" || t.estado === "confirmado_paciente"),
+      )
       .sort((a, b) => new Date(a.fecha_horario_inicio).getTime() - new Date(b.fecha_horario_inicio).getTime())[0]
   }
 
-  const canManageAppointment = (fechaInicio: string) => {
+  const canManageAppointment = (fechaInicio: string, estado: string) => {
+    if (estado === "confirmado_paciente" || estado === "cancelado_paciente" || estado === "reprogramado_paciente") {
+      return false
+    }
+
     const appointmentDate = new Date(fechaInicio)
     const now = new Date()
     const oneDayBefore = new Date(appointmentDate.getTime() - 24 * 60 * 60 * 1000)
@@ -189,6 +197,28 @@ export default function PacienteDashboard() {
     }
   }
 
+  const getStatusMessage = (estado: string) => {
+    switch (estado) {
+      case "confirmado_paciente":
+        return {
+          type: "success",
+          message: "Te esperamos en Caseros 842, cualquier duda, escribinos por WhatsApp al +54 9 387 535-0665",
+        }
+      case "cancelado_paciente":
+        return {
+          type: "error",
+          message: "Lamentamos que no puedas asistir a tu turno",
+        }
+      case "reprogramado_paciente":
+        return {
+          type: "info",
+          message: "Tu turno ha sido reprogramado. Pronto recibirás la confirmación de la nueva fecha.",
+        }
+      default:
+        return null
+    }
+  }
+
   const getEstadoBadge = (estado: string) => {
     const colors = {
       confirmado: "bg-blue-100 text-blue-800",
@@ -279,21 +309,19 @@ export default function PacienteDashboard() {
                 </div>
               </div>
 
-              {canManageAppointment(nextAppointment.fecha_horario_inicio) && (
+              {canManageAppointment(nextAppointment.fecha_horario_inicio, nextAppointment.estado) ? (
                 <div className="space-y-2">
                   <p className="text-sm text-gray-600 mb-3">Gestiona tu turno:</p>
                   <div className="flex flex-wrap gap-2">
-                    {nextAppointment.estado !== "confirmado_paciente" && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleConfirmAppointment(nextAppointment)}
-                        disabled={actionLoading}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Confirmar Asistencia
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      onClick={() => handleConfirmAppointment(nextAppointment)}
+                      disabled={actionLoading}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Confirmar Asistencia
+                    </Button>
 
                     <Dialog open={cancelDialog} onOpenChange={setCancelDialog}>
                       <DialogTrigger asChild>
@@ -400,6 +428,36 @@ export default function PacienteDashboard() {
                     </Dialog>
                   </div>
                 </div>
+              ) : (
+                (() => {
+                  const statusMessage = getStatusMessage(nextAppointment.estado)
+                  if (statusMessage) {
+                    return (
+                      <div
+                        className={`p-4 rounded-lg ${
+                          statusMessage.type === "success"
+                            ? "bg-green-50 border border-green-200"
+                            : statusMessage.type === "error"
+                              ? "bg-red-50 border border-red-200"
+                              : "bg-blue-50 border border-blue-200"
+                        }`}
+                      >
+                        <p
+                          className={`text-sm ${
+                            statusMessage.type === "success"
+                              ? "text-green-800"
+                              : statusMessage.type === "error"
+                                ? "text-red-800"
+                                : "text-blue-800"
+                          }`}
+                        >
+                          {statusMessage.message}
+                        </p>
+                      </div>
+                    )
+                  }
+                  return null
+                })()
               )}
             </div>
           </CardContent>
