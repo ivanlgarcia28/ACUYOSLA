@@ -8,8 +8,14 @@ export async function POST(request: NextRequest) {
     const accessToken = process.env.WHATSAPP_ACCESS_TOKEN
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID
 
+    console.log("🔍 WhatsApp API Debug Info:")
+    console.log(`📱 Phone Number ID: ${phoneNumberId}`)
+    console.log(`🔑 Access Token exists: ${!!accessToken}`)
+    console.log(`🔑 Access Token length: ${accessToken?.length || 0}`)
+    console.log(`📞 Recipient phone: ${to}`)
+
     if (!accessToken || !phoneNumberId) {
-      console.error("Missing WhatsApp credentials")
+      console.error("❌ Missing WhatsApp credentials")
       return NextResponse.json({ error: "WhatsApp credentials not configured" }, { status: 500 })
     }
 
@@ -84,32 +90,35 @@ Ele Odontología`,
     const result = await response.json()
 
     if (!response.ok) {
-      console.error("WhatsApp API error:", result)
+      console.error("❌ WhatsApp API error:", result)
+      console.log("🔍 Request details:")
+      console.log(`- URL: https://graph.facebook.com/v18.0/${phoneNumberId}/messages`)
+      console.log(`- Phone Number ID: ${phoneNumberId}`)
+      console.log(`- Access Token (first 20 chars): ${accessToken.substring(0, 20)}...`)
 
       if (result.error?.message?.includes("Object with ID") && result.error?.message?.includes("does not exist")) {
-        console.log(
-          `❌ WhatsApp Phone Number ID '${phoneNumberId}' does not exist or access token doesn't have permission to use it`,
-        )
-        console.log("📋 To fix this:")
+        console.log("🚨 SOLUTION NEEDED:")
         console.log("1. Go to Meta Developer Console → WhatsApp → API Setup")
-        console.log("2. Copy the correct Phone Number ID from your WhatsApp Business account")
-        console.log("3. Update WHATSAPP_PHONE_NUMBER_ID environment variable in Vercel")
-        console.log("4. Make sure your access token has permission to use this phone number")
+        console.log("2. Click 'Generar token de acceso' to generate a new access token")
+        console.log("3. Make sure the token has permission for phone number:", phoneNumberId)
+        console.log("4. Update WHATSAPP_ACCESS_TOKEN in Vercel environment variables")
+        console.log("5. Verify the phone number is approved for messaging")
 
         return NextResponse.json(
           {
             success: false,
-            error: "Invalid WhatsApp Phone Number ID",
+            error: "WhatsApp configuration issue",
             message:
-              "Appointment created successfully, but WhatsApp notification could not be sent due to incorrect phone number configuration",
+              "Appointment created successfully, but WhatsApp notification failed due to access token or permissions",
             debug: {
               phoneNumberId,
-              issue: "Phone Number ID does not exist or access token lacks permission",
-              solution: "Update WHATSAPP_PHONE_NUMBER_ID in environment variables",
+              accessTokenLength: accessToken.length,
+              issue: "Access token may not have permission for this phone number",
+              solution: "Generate new access token in Meta Developer Console",
             },
           },
           { status: 200 },
-        ) // Return 200 so appointment booking doesn't fail
+        )
       }
 
       if (result.error?.code === 133010 && result.error?.error_subcode === 2593006) {
