@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
       .insert({
         paciente_dni: pacienteDni,
         tratamiento_id: turno.tratamiento_id,
+        calendar_id: turno.calendar_id, // Copy calendar_id from original appointment
         fecha_horario_inicio: nuevaFechaInicio.toISOString(),
         fecha_horario_fin: nuevaFechaFin.toISOString(),
         estado: "reservado",
