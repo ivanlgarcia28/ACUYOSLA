@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { formatArgentinaPhone, isValidWhatsAppPhone } from "@/lib/utils/phone-formatter"
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
     console.log(`📱 Phone Number ID: ${phoneNumberId}`)
     console.log(`🔑 Access Token exists: ${!!accessToken}`)
     console.log(`🔑 Access Token length: ${accessToken?.length || 0}`)
-    console.log(`📞 Recipient phone: ${to}`)
+    console.log(`📞 Original recipient phone: ${to}`)
 
     if (!accessToken || !phoneNumberId) {
       console.log("⚠️ WhatsApp credentials not configured - appointment will continue without notification")
@@ -26,9 +27,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Format phone number (remove any non-digits and ensure it starts with country code)
-    const formattedPhone = to.replace(/\D/g, "")
-    const phoneNumber = formattedPhone.startsWith("54") ? formattedPhone : `54${formattedPhone}`
+    const phoneNumber = formatArgentinaPhone(to)
+    console.log(`📞 Formatted phone (E.164): ${phoneNumber}`)
+
+    if (!isValidWhatsAppPhone(phoneNumber)) {
+      console.error(`❌ Invalid phone number format: ${phoneNumber}`)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid phone number format",
+          message: "Appointment created successfully, but WhatsApp notification failed due to invalid phone format",
+        },
+        { status: 200 },
+      )
+    }
 
     const textMessage = {
       messaging_product: "whatsapp",
