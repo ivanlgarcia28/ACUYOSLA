@@ -23,6 +23,8 @@ interface Turno {
   fecha_horario_fin: string
   estado: string
   observaciones?: string
+  confirmado_clinica: boolean
+  tipo_turno: string
   pacientes: {
     nombre_apellido: string
     telefono: string // Assuming telefono is available in pacientes
@@ -123,6 +125,8 @@ export default function AdminDashboard() {
           fecha_horario_fin,
           estado,
           observaciones,
+          confirmado_clinica,
+          tipo_turno,
           pacientes!inner(nombre_apellido, telefono),
           tratamientos!inner(id, nombre)
         `)
@@ -139,6 +143,8 @@ export default function AdminDashboard() {
           fecha_horario_fin,
           estado,
           observaciones,
+          confirmado_clinica,
+          tipo_turno,
           pacientes!inner(nombre_apellido, telefono),
           tratamientos!inner(id, nombre)
         `)
@@ -160,6 +166,8 @@ export default function AdminDashboard() {
   const fetchFilteredTurnos = async (filter: string) => {
     const dateRange = getFilterDates(filter)
 
+    console.log("[v0] Fetching turnos for date range:", dateRange)
+
     const { data: turnos } = await supabase
       .from("turnos")
       .select(`
@@ -168,13 +176,17 @@ export default function AdminDashboard() {
         fecha_horario_fin,
         estado,
         observaciones,
+        confirmado_clinica,
+        tipo_turno,
         pacientes!inner(nombre_apellido, telefono),
         tratamientos!inner(id, nombre)
       `)
       .gte("fecha_horario_inicio", dateRange.start)
       .lte("fecha_horario_inicio", dateRange.end)
+      .neq("estado", "reprogramado_paciente")
       .order("fecha_horario_inicio")
 
+    console.log("[v0] Fetched turnos:", turnos?.length || 0)
     setFilteredTurnos(turnos || [])
   }
 
@@ -190,20 +202,22 @@ export default function AdminDashboard() {
 
   const getRowBackgroundColor = (estado: string) => {
     const colors = {
-      cancelado: "bg-red-50 hover:bg-red-100",
-      confirmado: "bg-green-50 hover:bg-green-100",
+      cancelado_paciente: "bg-red-50 hover:bg-red-100",
+      confirmado_paciente: "bg-green-50 hover:bg-green-100",
       reservado: "bg-yellow-50 hover:bg-yellow-100",
-      reprogramado: "bg-orange-50 hover:bg-orange-100",
+      reprogramado_paciente: "bg-orange-50 hover:bg-orange-100",
     }
     return colors[estado as keyof typeof colors] || "hover:bg-gray-50"
   }
 
-  const getEstadoBadge = (estado: string) => {
+  const getEstadoBadge = (estado: string, confirmadoClinica = false) => {
     const variants = {
       reservado: "bg-yellow-500 text-white font-semibold",
-      confirmado: "bg-green-500 text-white font-semibold",
-      reprogramado: "bg-orange-500 text-white font-semibold",
-      cancelado: "bg-red-500 text-white font-semibold",
+      confirmado_paciente: confirmadoClinica
+        ? "bg-green-500 text-white font-semibold"
+        : "bg-blue-500 text-white font-semibold",
+      reprogramado_paciente: "bg-orange-500 text-white font-semibold",
+      cancelado_paciente: "bg-red-500 text-white font-semibold",
     }
     return variants[estado as keyof typeof variants] || "bg-gray-500 text-white font-semibold"
   }
@@ -321,6 +335,21 @@ Ele Odontología`
     return `https://wa.me/${telefono}?text=${mensaje}`
   }
 
+  const handleConfirmAppointment = async (turnoId: number) => {
+    try {
+      const { error } = await supabase.from("turnos").update({ confirmado_clinica: true }).eq("id", turnoId)
+
+      if (error) throw error
+
+      // Refresh the filtered turnos
+      fetchFilteredTurnos(appointmentFilter)
+
+      console.log("[v0] Appointment confirmed successfully")
+    } catch (error) {
+      console.error("[v0] Error confirming appointment:", error)
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-6">
@@ -421,39 +450,58 @@ Ele Odontología`
             <p className="text-gray-500 text-center py-4">No hay turnos programados para el período seleccionado</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-full">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-2">Fecha</th>
-                    <th className="text-left py-2">Hora</th>
-                    <th className="text-left py-2">Paciente</th>
-                    <th className="text-left py-2">Tratamiento</th>
-                    <th className="text-left py-2">Estado</th>
-                    <th className="text-left py-2">Acciones</th>
-                    {appointmentFilter === "manana" && <th className="text-left py-2">Confirmar</th>}
+                    <th className="text-left py-2 px-2">Fecha</th>
+                    <th className="text-left py-2 px-2">Hora</th>
+                    <th className="text-left py-2 px-2">Paciente</th>
+                    <th className="text-left py-2 px-2">Tratamiento</th>
+                    <th className="text-left py-2 px-2">Estado</th>
+                    <th className="text-left py-2 px-2">Confirmación</th>
+                    <th className="text-left py-2 px-2">Acciones</th>
+                    {appointmentFilter === "manana" && <th className="text-left py-2 px-2">WhatsApp</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {filteredTurnos.map((turno) => (
                     <tr key={turno.id} className={`border-b ${getRowBackgroundColor(turno.estado)}`}>
-                      <td className="py-2">{new Date(turno.fecha_horario_inicio).toLocaleDateString("es-ES")}</td>
-                      <td className="py-2">
+                      <td className="py-2 px-2 text-sm">
+                        {new Date(turno.fecha_horario_inicio).toLocaleDateString("es-ES")}
+                      </td>
+                      <td className="py-2 px-2 text-sm">
                         {new Date(turno.fecha_horario_inicio).toLocaleTimeString("es-ES", {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
                       </td>
-                      <td className="py-2">{turno.pacientes.nombre_apellido}</td>
-                      <td className="py-2">{turno.tratamientos.nombre}</td>
-                      <td className="py-2">
-                        <Badge className={getEstadoBadge(turno.estado)}>{turno.estado.toUpperCase()}</Badge>
+                      <td className="py-2 px-2 text-sm">{turno.pacientes.nombre_apellido}</td>
+                      <td className="py-2 px-2 text-sm">{turno.tratamientos.nombre}</td>
+                      <td className="py-2 px-2">
+                        <Badge className={getEstadoBadge(turno.estado, turno.confirmado_clinica)}>
+                          {turno.estado.replace("_", " ").toUpperCase()}
+                        </Badge>
                       </td>
-                      <td className="py-2">
+                      <td className="py-2 px-2">
+                        {turno.confirmado_clinica ? (
+                          <Badge className="bg-green-100 text-green-800">Confirmado</Badge>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-yellow-50 hover:bg-yellow-100 text-yellow-700"
+                            onClick={() => handleConfirmAppointment(turno.id)}
+                          >
+                            Confirmar
+                          </Button>
+                        )}
+                      </td>
+                      <td className="py-2 px-2">
                         <Dialog>
                           <DialogTrigger asChild>
                             <Button variant="outline" size="sm" onClick={() => openTurnoDetail(turno)}>
                               <Eye className="h-4 w-4 mr-1" />
-                              Detalle
+                              Ver
                             </Button>
                           </DialogTrigger>
                           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -568,7 +616,7 @@ Ele Odontología`
                         </Dialog>
                       </td>
                       {appointmentFilter === "manana" && (
-                        <td className="py-2">
+                        <td className="py-2 px-2">
                           <Button
                             variant="outline"
                             size="sm"

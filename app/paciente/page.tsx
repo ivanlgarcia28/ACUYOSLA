@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClient } from "@/lib/supabase/client"
 import { MessageCircle, UserPlus } from "lucide-react"
+import { formatArgentinaPhone, isValidWhatsAppPhone, formatPhoneForDisplay } from "@/lib/utils/phone-formatter"
 
 interface ObraSocial {
   id: number
@@ -131,10 +132,18 @@ export default function PacienteLogin() {
   }
 
   const handleRegistrationInputChange = (field: string, value: string) => {
-    setRegistrationData((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
+    if (field === "telefono") {
+      const formattedPhone = formatArgentinaPhone(value)
+      setRegistrationData((prev) => ({
+        ...prev,
+        [field]: formattedPhone,
+      }))
+    } else {
+      setRegistrationData((prev) => ({
+        ...prev,
+        [field]: value,
+      }))
+    }
   }
 
   const isRegistrationFormValid = () => {
@@ -264,11 +273,19 @@ export default function PacienteLogin() {
                 <Input
                   id="telefono"
                   type="tel"
-                  placeholder="+54 9 387 123 4567"
-                  value={registrationData.telefono}
+                  placeholder="0387 155350665 o +54 9 387 535 0665"
+                  value={formatPhoneForDisplay(registrationData.telefono)}
                   onChange={(e) => handleRegistrationInputChange("telefono", e.target.value)}
                   required
                 />
+                {registrationData.telefono && !isValidWhatsAppPhone(registrationData.telefono) && (
+                  <p className="text-xs text-amber-600">
+                    Formato sugerido: 0387 155350665 (se formateará automáticamente)
+                  </p>
+                )}
+                {registrationData.telefono && isValidWhatsAppPhone(registrationData.telefono) && (
+                  <p className="text-xs text-green-600">✓ Número válido para WhatsApp: {registrationData.telefono}</p>
+                )}
               </div>
 
               <div className="space-y-2">

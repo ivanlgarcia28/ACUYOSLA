@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Save } from "lucide-react"
 import Link from "next/link"
+import { NotificationModal, useNotification } from "@/components/ui/notification-modal"
 
 interface Categoria {
   id: number
@@ -35,6 +36,7 @@ export default function EditarProductoPage() {
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const { notification, showNotification, hideNotification } = useNotification()
 
   useEffect(() => {
     fetchProducto()
@@ -91,7 +93,7 @@ export default function EditarProductoPage() {
       router.push("/admin/productos")
     } catch (error) {
       console.error("Error updating producto:", error)
-      alert("Error al actualizar el producto")
+      showNotification("Error al actualizar el producto", "error")
     } finally {
       setSaving(false)
     }
@@ -231,6 +233,13 @@ export default function EditarProductoPage() {
           </div>
         </form>
       </div>
+      <NotificationModal
+        isOpen={notification.isOpen}
+        onClose={hideNotification}
+        message={notification.message}
+        type={notification.type}
+        title={notification.title}
+      />
     </div>
   )
 }

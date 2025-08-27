@@ -15,14 +15,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="es">
-      <head>
-        <style>{`
-html {
-  font-family: ${GeistSans.style.fontFamily};
-}
-        `}</style>
-      </head>
+    <html lang="es" className={GeistSans.className}>
       <body className="antialiased">{children}</body>
     </html>
   )

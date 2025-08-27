@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { NotificationModal, useNotification } from "@/components/ui/notification-modal"
 
 export default function NuevoTratamientoPage() {
   const router = useRouter()
@@ -26,6 +27,8 @@ export default function NuevoTratamientoPage() {
     duracion_minutos: 60,
     insumos_id: "0", // Updated default value to be a non-empty string
   })
+
+  const { notification, showNotification, hideNotification } = useNotification()
 
   useEffect(() => {
     fetchInsumos()
@@ -54,7 +57,7 @@ export default function NuevoTratamientoPage() {
       router.push("/admin/tratamientos")
     } catch (error) {
       console.error("Error:", error)
-      alert("Error al crear tratamiento")
+      showNotification("Error al crear tratamiento", "error")
     } finally {
       setLoading(false)
     }
@@ -150,6 +153,14 @@ export default function NuevoTratamientoPage() {
           </form>
         </CardContent>
       </Card>
+
+      <NotificationModal
+        isOpen={notification.isOpen}
+        onClose={hideNotification}
+        message={notification.message}
+        type={notification.type}
+        title={notification.title}
+      />
     </div>
   )
 }

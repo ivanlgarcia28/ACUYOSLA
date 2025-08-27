@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { NotificationModal, useNotification } from "@/components/ui/notification-modal"
 
 export default function WhatsAppBulkPage() {
   const [phoneNumbers, setPhoneNumbers] = useState("")
@@ -13,10 +14,11 @@ export default function WhatsAppBulkPage() {
   const [delayBetweenMessages, setDelayBetweenMessages] = useState(1000)
   const [isLoading, setIsLoading] = useState(false)
   const [results, setResults] = useState<any>(null)
+  const { notification, showNotification, hideNotification } = useNotification()
 
   const handleSendBulk = async () => {
     if (!phoneNumbers.trim() || !message.trim()) {
-      alert("Por favor complete todos los campos")
+      showNotification("Por favor complete todos los campos", "warning")
       return
     }
 
@@ -24,10 +26,10 @@ export default function WhatsAppBulkPage() {
       .split("\n")
       .map((num) => num.trim())
       .filter((num) => num.length > 0)
-      .map((num) => (num.startsWith("+") ? num : `+54${num}`)) // Add Argentina prefix if missing
+      .map((num) => (num.startsWith("+") ? num : `+54${num}`))
 
     if (numbersArray.length === 0) {
-      alert("Por favor ingrese al menos un número de teléfono")
+      showNotification("Por favor ingrese al menos un número de teléfono", "warning")
       return
     }
 
@@ -51,7 +53,7 @@ export default function WhatsAppBulkPage() {
       setResults(data)
     } catch (error) {
       console.error("Error sending bulk messages:", error)
-      alert("Error al enviar mensajes masivos")
+      showNotification("Error al enviar mensajes masivos", "error")
     } finally {
       setIsLoading(false)
     }
@@ -161,6 +163,14 @@ export default function WhatsAppBulkPage() {
           </CardContent>
         </Card>
       )}
+
+      <NotificationModal
+        isOpen={notification.isOpen}
+        onClose={hideNotification}
+        message={notification.message}
+        type={notification.type}
+        title={notification.title}
+      />
     </div>
   )
 }

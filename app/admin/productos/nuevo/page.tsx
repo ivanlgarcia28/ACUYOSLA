@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { NotificationModal, useNotification } from "@/components/ui/notification-modal"
 
 export default function NuevoProductoPage() {
   const router = useRouter()
@@ -28,6 +29,8 @@ export default function NuevoProductoPage() {
     stock: "",
     categoria_id: "",
   })
+
+  const { notification, showNotification, hideNotification } = useNotification()
 
   useEffect(() => {
     fetchCategorias()
@@ -58,7 +61,7 @@ export default function NuevoProductoPage() {
       router.push("/admin/productos")
     } catch (error) {
       console.error("Error:", error)
-      alert("Error al crear producto")
+      showNotification("Error al crear producto", "error")
     } finally {
       setLoading(false)
     }
@@ -173,6 +176,14 @@ export default function NuevoProductoPage() {
           </form>
         </CardContent>
       </Card>
+
+      <NotificationModal
+        isOpen={notification.isOpen}
+        onClose={hideNotification}
+        message={notification.message}
+        type={notification.type}
+        title={notification.title}
+      />
     </div>
   )
 }

@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Save } from "lucide-react"
 import Link from "next/link"
+import { NotificationModal, useNotification } from "@/components/ui/notification-modal"
 
 interface Paciente {
   dni: string
@@ -40,6 +41,7 @@ export default function EditarTurnoPage() {
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const { notification, showNotification, hideNotification } = useNotification()
 
   const formatDateTimeForInput = (utcDateString: string) => {
     const date = new Date(utcDateString)
@@ -123,7 +125,7 @@ export default function EditarTurnoPage() {
       router.push("/admin/turnos")
     } catch (error) {
       console.error("Error updating turno:", error)
-      alert("Error al actualizar el turno")
+      showNotification("Error al actualizar el turno", "error")
     } finally {
       setSaving(false)
     }
@@ -265,6 +267,13 @@ export default function EditarTurnoPage() {
           </div>
         </form>
       </div>
+      <NotificationModal
+        isOpen={notification.isOpen}
+        onClose={hideNotification}
+        message={notification.message}
+        type={notification.type}
+        title={notification.title}
+      />
     </div>
   )
 }

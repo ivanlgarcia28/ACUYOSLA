@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Save } from "lucide-react"
 import Link from "next/link"
+import { NotificationModal, useNotification } from "@/components/ui/notification-modal"
 
 interface Insumo {
   id: number
@@ -33,6 +34,7 @@ export default function EditarTratamientoPage() {
   const [insumos, setInsumos] = useState<Insumo[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const { notification, showNotification, hideNotification } = useNotification()
 
   useEffect(() => {
     fetchTratamiento()
@@ -84,7 +86,7 @@ export default function EditarTratamientoPage() {
       router.push("/admin/tratamientos")
     } catch (error) {
       console.error("Error updating tratamiento:", error)
-      alert("Error al actualizar el tratamiento")
+      showNotification("Error al actualizar el tratamiento", "error")
     } finally {
       setSaving(false)
     }
@@ -198,6 +200,13 @@ export default function EditarTratamientoPage() {
           </div>
         </form>
       </div>
+      <NotificationModal
+        isOpen={notification.isOpen}
+        onClose={hideNotification}
+        message={notification.message}
+        type={notification.type}
+        title={notification.title}
+      />
     </div>
   )
 }

@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { NotificationModal, useNotification } from "@/components/ui/notification-modal"
 
 export default function NuevoPacientePage() {
   const router = useRouter()
@@ -26,6 +27,8 @@ export default function NuevoPacientePage() {
     telefono: "",
     obra_social: 1,
   })
+
+  const { notification, showNotification, hideNotification } = useNotification()
 
   useEffect(() => {
     fetchObrasSociales()
@@ -49,7 +52,7 @@ export default function NuevoPacientePage() {
       router.push("/admin/pacientes")
     } catch (error) {
       console.error("Error:", error)
-      alert("Error al crear paciente")
+      showNotification("Error al crear paciente", "error")
     } finally {
       setLoading(false)
     }
@@ -149,6 +152,14 @@ export default function NuevoPacientePage() {
           </form>
         </CardContent>
       </Card>
+
+      <NotificationModal
+        isOpen={notification.isOpen}
+        onClose={hideNotification}
+        message={notification.message}
+        type={notification.type}
+        title={notification.title}
+      />
     </div>
   )
 }
