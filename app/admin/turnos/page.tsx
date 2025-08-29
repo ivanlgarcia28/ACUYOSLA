@@ -52,7 +52,6 @@ interface Turno {
   }
   tratamientos?: {
     nombre: string
-    precio?: number
   }
   created_at?: string
   confirmacion_solicitada_at?: string
@@ -135,8 +134,7 @@ export default function TurnosPage() {
             email
           ),
           tratamientos (
-            nombre,
-            precio
+            nombre
           )
         `)
         .neq("estado", "reprogramado_paciente")
@@ -562,7 +560,6 @@ export default function TurnosPage() {
                           })}
                         </p>
                         <p>🦷 {turno.tratamientos?.nombre || "Consulta"}</p>
-                        <p>💰 ${turno.tratamientos?.precio?.toLocaleString() || "N/A"}</p>
                         {turno.pacientes?.telefono && <p>📞 {turno.pacientes.telefono}</p>}
                         {turno.confirmado_at && (
                           <p>✅ Confirmado: {new Date(turno.confirmado_at).toLocaleDateString("es-AR")}</p>
