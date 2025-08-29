@@ -12,7 +12,6 @@ interface CalendarTurno {
   fecha_horario_inicio: string
   fecha_horario_fin: string
   estado: string
-  tipo_turno?: string
   pacientes?: {
     nombre_apellido: string
   }
@@ -70,7 +69,6 @@ export default function CalendarView({ onTurnoClick, patientDni }: CalendarViewP
           fecha_horario_inicio,
           fecha_horario_fin,
           estado,
-          tipo_turno,
           paciente_dni,
           tratamiento_id,
           pacientes(nombre_apellido),
@@ -293,8 +291,7 @@ export default function CalendarView({ onTurnoClick, patientDni }: CalendarViewP
                   <Badge className={getEstadoColor(turno.estado)}>{turno.estado.replace("_", " ").toUpperCase()}</Badge>
                 </div>
                 <div className="mt-2 text-sm text-gray-600">
-                  {turno.tratamientos?.nombre || `Tratamiento ${turno.tratamiento_id}`} •{" "}
-                  {turno.tipo_turno || "Consulta"}
+                  {turno.tratamientos?.nombre || `Tratamiento ${turno.tratamiento_id}`}
                 </div>
               </CardContent>
             </Card>
