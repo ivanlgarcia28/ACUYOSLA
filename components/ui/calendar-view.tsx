@@ -12,20 +12,23 @@ interface CalendarTurno {
   fecha_horario_inicio: string
   fecha_horario_fin: string
   estado: string
-  tipo_turno: string
-  pacientes: {
+  tipo_turno?: string
+  pacientes?: {
     nombre_apellido: string
   }
-  tratamientos: {
+  tratamientos?: {
     nombre: string
   }
+  paciente_dni?: string
+  tratamiento_id?: number
 }
 
 interface CalendarViewProps {
   onTurnoClick?: (turno: CalendarTurno) => void
+  patientDni?: string // Optional filter for patient-specific view
 }
 
-export default function CalendarView({ onTurnoClick }: CalendarViewProps) {
+export default function CalendarView({ onTurnoClick, patientDni }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<"month" | "week" | "day">("month")
   const [turnos, setTurnos] = useState<CalendarTurno[]>([])
@@ -36,6 +39,8 @@ export default function CalendarView({ onTurnoClick }: CalendarViewProps) {
   const fetchTurnos = async () => {
     setLoading(true)
     try {
+      console.log("[v0] Fetching turnos for calendar view...")
+
       let startDate: Date
       let endDate: Date
 
@@ -47,7 +52,7 @@ export default function CalendarView({ onTurnoClick }: CalendarViewProps) {
         const diff = currentDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
         startDate = new Date(currentDate.setDate(diff))
         endDate = new Date(startDate)
-        endDate.setDate(startDate.getDate() + 6)
+        endDate.setDate(startDate.getDate() + 4) // Only 5 working days (Mon-Fri)
         endDate.setHours(23, 59, 59)
       } else {
         startDate = new Date(currentDate)
@@ -56,7 +61,9 @@ export default function CalendarView({ onTurnoClick }: CalendarViewProps) {
         endDate.setHours(23, 59, 59)
       }
 
-      const { data } = await supabase
+      console.log("[v0] Date range:", startDate.toISOString(), "to", endDate.toISOString())
+
+      let query = supabase
         .from("turnos")
         .select(`
           id,
@@ -64,17 +71,34 @@ export default function CalendarView({ onTurnoClick }: CalendarViewProps) {
           fecha_horario_fin,
           estado,
           tipo_turno,
-          pacientes!inner(nombre_apellido),
-          tratamientos!inner(nombre)
+          paciente_dni,
+          tratamiento_id,
+          pacientes(nombre_apellido),
+          tratamientos(nombre)
         `)
         .gte("fecha_horario_inicio", startDate.toISOString())
         .lte("fecha_horario_inicio", endDate.toISOString())
         .neq("estado", "cancelado")
+        .neq("estado", "reprogramado_paciente")
         .order("fecha_horario_inicio")
 
+      if (patientDni) {
+        query = query.eq("paciente_dni", patientDni)
+      }
+
+      const { data, error } = await query
+
+      if (error) {
+        console.error("[v0] Error fetching turnos:", error)
+        setTurnos([])
+        return
+      }
+
+      console.log("[v0] Fetched turnos:", data?.length || 0)
       setTurnos(data || [])
     } catch (error) {
-      console.error("Error fetching turnos:", error)
+      console.error("[v0] Error in fetchTurnos:", error)
+      setTurnos([])
     } finally {
       setLoading(false)
     }
@@ -82,7 +106,7 @@ export default function CalendarView({ onTurnoClick }: CalendarViewProps) {
 
   useEffect(() => {
     fetchTurnos()
-  }, [currentDate, view])
+  }, [currentDate, view, patientDni])
 
   const navigateDate = (direction: "prev" | "next") => {
     const newDate = new Date(currentDate)
@@ -145,7 +169,7 @@ export default function CalendarView({ onTurnoClick }: CalendarViewProps) {
                     minute: "2-digit",
                   })}
                 </div>
-                <div className="truncate">{turno.pacientes.nombre_apellido}</div>
+                <div className="truncate">{turno.pacientes?.nombre_apellido || `DNI: ${turno.paciente_dni}`}</div>
               </div>
             ))}
             {dayTurnos.length > 3 && <div className="text-xs text-gray-500">+{dayTurnos.length - 3} más</div>}
@@ -175,14 +199,17 @@ export default function CalendarView({ onTurnoClick }: CalendarViewProps) {
     startOfWeek.setDate(diff)
 
     const weekDays = []
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 5; i++) {
+      // Only 5 working days
       const currentDay = new Date(startOfWeek)
       currentDay.setDate(startOfWeek.getDate() + i)
       weekDays.push(currentDay)
     }
 
     return (
-      <div className="grid grid-cols-8 gap-0 border border-gray-200">
+      <div className="grid grid-cols-6 gap-0 border border-gray-200">
+        {" "}
+        {/* Changed from 8 to 6 columns */}
         <div className="p-3 bg-gray-100 font-medium text-center text-sm border-b">Hora</div>
         {weekDays.map((day) => (
           <div key={day.toISOString()} className="p-3 bg-gray-100 font-medium text-center text-sm border-b">
@@ -190,7 +217,6 @@ export default function CalendarView({ onTurnoClick }: CalendarViewProps) {
             <div>{day.getDate()}</div>
           </div>
         ))}
-
         {Array.from({ length: 12 }, (_, hour) => {
           const timeSlot = hour + 8 // 8 AM to 8 PM
           return (
@@ -210,8 +236,10 @@ export default function CalendarView({ onTurnoClick }: CalendarViewProps) {
                         className={`text-xs p-1 rounded mb-1 cursor-pointer hover:opacity-80 ${getEstadoColor(turno.estado)}`}
                         onClick={() => onTurnoClick?.(turno)}
                       >
-                        <div className="font-medium">{turno.pacientes.nombre_apellido}</div>
-                        <div className="truncate">{turno.tratamientos.nombre}</div>
+                        <div className="font-medium">
+                          {turno.pacientes?.nombre_apellido || `DNI: ${turno.paciente_dni}`}
+                        </div>
+                        <div className="truncate">{turno.tratamientos?.nombre || `Trat. ${turno.tratamiento_id}`}</div>
                       </div>
                     ))}
                   </div>
@@ -259,13 +287,14 @@ export default function CalendarView({ onTurnoClick }: CalendarViewProps) {
                     </div>
                     <div className="flex items-center space-x-2">
                       <User className="h-4 w-4 text-gray-500" />
-                      <span>{turno.pacientes.nombre_apellido}</span>
+                      <span>{turno.pacientes?.nombre_apellido || `DNI: ${turno.paciente_dni}`}</span>
                     </div>
                   </div>
                   <Badge className={getEstadoColor(turno.estado)}>{turno.estado.replace("_", " ").toUpperCase()}</Badge>
                 </div>
                 <div className="mt-2 text-sm text-gray-600">
-                  {turno.tratamientos.nombre} • {turno.tipo_turno}
+                  {turno.tratamientos?.nombre || `Tratamiento ${turno.tratamiento_id}`} •{" "}
+                  {turno.tipo_turno || "Consulta"}
                 </div>
               </CardContent>
             </Card>
@@ -284,9 +313,9 @@ export default function CalendarView({ onTurnoClick }: CalendarViewProps) {
       const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1)
       startOfWeek.setDate(diff)
       const endOfWeek = new Date(startOfWeek)
-      endOfWeek.setDate(startOfWeek.getDate() + 6)
+      endOfWeek.setDate(startOfWeek.getDate() + 4) // Only 5 working days
 
-      return `${startOfWeek.getDate()} - ${endOfWeek.getDate()} ${endOfWeek.toLocaleDateString("es-ES", { month: "long", year: "numeric" })}`
+      return `${startOfWeek.getDate()} - ${endOfWeek.getDate()} ${endOfWeek.toLocaleDateString("es-ES", { month: "long", year: "numeric" })} (Lun-Vie)`
     } else {
       return currentDate.toLocaleDateString("es-ES", {
         weekday: "long",
@@ -304,6 +333,7 @@ export default function CalendarView({ onTurnoClick }: CalendarViewProps) {
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
             Calendario de Turnos
+            {patientDni && <span className="text-sm font-normal text-gray-500">(Paciente: {patientDni})</span>}
           </CardTitle>
           <div className="flex items-center space-x-2">
             <div className="flex rounded-md border">
@@ -359,6 +389,11 @@ export default function CalendarView({ onTurnoClick }: CalendarViewProps) {
             {view === "month" && renderMonthView()}
             {view === "week" && renderWeekView()}
             {view === "day" && renderDayView()}
+          </div>
+        )}
+        {!loading && turnos.length === 0 && (
+          <div className="text-center py-4 text-gray-500 text-sm">
+            No se encontraron turnos para el período seleccionado
           </div>
         )}
       </CardContent>
