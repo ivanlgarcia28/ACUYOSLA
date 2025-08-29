@@ -23,17 +23,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Turno no encontrado" }, { status: 404 })
     }
 
-    const { error: updateError } = await supabase
-      .from("turnos")
-      .update({
-        estado: "reprogramado_paciente",
-        observaciones: motivo || "Reprogramado por el paciente",
-        modified_at: new Date().toISOString(),
-      })
-      .eq("id", turnoId)
+    const { error: statusError } = await supabase.rpc("cambiar_estado_turno", {
+      p_turno_id: turnoId,
+      p_estado_nuevo: "reprogramado",
+      p_motivo: `Reprogramado para ${nuevaFecha} ${nuevaHora}. ${motivo || ""}`,
+    })
 
-    if (updateError) {
-      console.error("Error updating turno:", updateError)
+    if (statusError) {
+      console.error("Error updating original turno:", statusError)
       return NextResponse.json({ error: "Error al reprogramar el turno" }, { status: 500 })
     }
 
@@ -45,12 +42,13 @@ export async function POST(request: NextRequest) {
       .insert({
         paciente_dni: pacienteDni,
         tratamiento_id: turno.tratamiento_id,
-        calendar_id: turno.calendar_id, // Copy calendar_id from original appointment
+        calendar_id: turno.calendar_id,
         fecha_horario_inicio: nuevaFechaInicio.toISOString(),
         fecha_horario_fin: nuevaFechaFin.toISOString(),
         estado: "reservado",
         observaciones: `Reprogramado desde ${new Date(turno.fecha_horario_inicio).toLocaleDateString()}. ${motivo || ""}`,
-        created_at: new Date().toISOString(),
+        turno_original_id: turnoId, // Reference to original appointment
+        tenant_id: turno.tenant_id,
       })
       .select()
       .single()
@@ -60,19 +58,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Error al crear el nuevo turno" }, { status: 500 })
     }
 
-    // Registrar en historial del turno original
-    await supabase.from("turnos_status_history").insert({
-      turno_id: turnoId,
-      status: "reprogramado_paciente",
-      notes: `Reprogramado para ${nuevaFecha} ${nuevaHora}. ${motivo || ""}`,
-      changed_at: new Date().toISOString(),
-    })
-
-    await supabase.from("turnos_status_history").insert({
+    await supabase.from("turnos_historial").insert({
       turno_id: nuevoTurno.id,
-      status: "reservado",
-      notes: `Nuevo turno creado por reprogramación del turno #${turnoId}`,
-      changed_at: new Date().toISOString(),
+      estado_nuevo: "reservado",
+      motivo: `Nuevo turno creado por reprogramación del turno #${turnoId}`,
     })
 
     return NextResponse.json({

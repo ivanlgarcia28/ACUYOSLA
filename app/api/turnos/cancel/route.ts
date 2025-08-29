@@ -23,28 +23,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Turno no encontrado" }, { status: 404 })
     }
 
-    // Actualizar estado del turno
-    const { error: updateError } = await supabase
-      .from("turnos")
-      .update({
-        estado: "cancelado_paciente",
-        observaciones: motivo || "Cancelado por el paciente",
-        modified_at: new Date().toISOString(),
-      })
-      .eq("id", turnoId)
+    const { error } = await supabase.rpc("cambiar_estado_turno", {
+      p_turno_id: turnoId,
+      p_estado_nuevo: "cancelado_paciente",
+      p_motivo: motivo || "Cancelado por el paciente",
+    })
 
-    if (updateError) {
-      console.error("Error updating turno:", updateError)
+    if (error) {
+      console.error("Error canceling turno:", error)
       return NextResponse.json({ error: "Error al cancelar el turno" }, { status: 500 })
     }
-
-    // Registrar en historial
-    await supabase.from("turnos_status_history").insert({
-      turno_id: turnoId,
-      status: "cancelado_paciente",
-      notes: motivo || "Cancelado por el paciente",
-      changed_at: new Date().toISOString(),
-    })
 
     return NextResponse.json({
       success: true,
