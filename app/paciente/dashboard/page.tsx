@@ -17,7 +17,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar, Clock, User, FileText, CheckCircle, XCircle, RotateCcw, AlertCircle } from "lucide-react"
+import { NotificationModal, useNotification } from "@/components/ui/notification-modal"
+import { Calendar, Clock, User, FileText, CheckCircle, XCircle, RotateCcw, AlertCircle, Lock } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
 interface Turno {
@@ -29,6 +30,9 @@ interface Turno {
     nombre: string
     descripcion: string
   }
+  prioridad?: string
+  observaciones?: string
+  created_at?: string
 }
 
 interface TimeSlot {
@@ -54,6 +58,8 @@ export default function PacienteDashboard() {
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
 
+  const { notification, showNotification, hideNotification } = useNotification()
+
   useEffect(() => {
     const pacienteData = sessionStorage.getItem("paciente")
     if (pacienteData) {
@@ -73,6 +79,9 @@ export default function PacienteDashboard() {
           fecha_horario_inicio,
           fecha_horario_fin,
           estado,
+          prioridad,
+          observaciones,
+          created_at,
           tratamientos (
             nombre,
             descripcion
@@ -86,6 +95,7 @@ export default function PacienteDashboard() {
       setTurnos(data || [])
     } catch (error) {
       console.error("Error fetching turnos:", error)
+      showNotification("Error al cargar los turnos", "error")
     } finally {
       setLoading(false)
     }
@@ -109,8 +119,17 @@ export default function PacienteDashboard() {
 
     const appointmentDate = new Date(fechaInicio)
     const now = new Date()
-    // Only check if appointment is in the future, remove 24-hour restriction
-    return appointmentDate > now
+    const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+
+    return appointmentDate > now && appointmentDate <= twentyFourHoursFromNow
+  }
+
+  const isWithin24Hours = (fechaInicio: string) => {
+    const appointmentDate = new Date(fechaInicio)
+    const now = new Date()
+    const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+
+    return appointmentDate > now && appointmentDate <= twentyFourHoursFromNow
   }
 
   const handleConfirmAppointment = async (turno: Turno) => {
@@ -127,13 +146,13 @@ export default function PacienteDashboard() {
 
       if (response.ok) {
         await fetchTurnos(paciente.dni)
-        alert("Turno confirmado exitosamente")
+        showNotification("Turno confirmado exitosamente", "success")
       } else {
-        alert("Error al confirmar el turno")
+        showNotification("Error al confirmar el turno", "error")
       }
     } catch (error) {
       console.error("Error:", error)
-      alert("Error al confirmar el turno")
+      showNotification("Error al confirmar el turno", "error")
     } finally {
       setActionLoading(false)
     }
@@ -159,13 +178,13 @@ export default function PacienteDashboard() {
         setCancelDialog(false)
         setCancelReason("")
         setSelectedTurno(null)
-        alert("Turno cancelado exitosamente")
+        showNotification("Turno cancelado exitosamente", "success")
       } else {
-        alert("Error al cancelar el turno")
+        showNotification("Error al cancelar el turno", "error")
       }
     } catch (error) {
       console.error("Error:", error)
-      alert("Error al cancelar el turno")
+      showNotification("Error al cancelar el turno", "error")
     } finally {
       setActionLoading(false)
     }
@@ -196,13 +215,13 @@ export default function PacienteDashboard() {
         setRescheduleReason("")
         setSelectedTurno(null)
         setAvailableSlots([])
-        alert("Turno reprogramado exitosamente")
+        showNotification("Turno reprogramado exitosamente", "success")
       } else {
-        alert("Error al reprogramar el turno")
+        showNotification("Error al reprogramar el turno", "error")
       }
     } catch (error) {
       console.error("Error:", error)
-      alert("Error al reprogramar el turno")
+      showNotification("Error al reprogramar el turno", "error")
     } finally {
       setActionLoading(false)
     }
@@ -234,6 +253,7 @@ export default function PacienteDashboard() {
     const colors = {
       confirmado: "bg-blue-100 text-blue-800",
       confirmado_paciente: "bg-green-100 text-green-800",
+      confirmado_consultorio: "bg-emerald-100 text-emerald-800",
       reservado: "bg-yellow-100 text-yellow-800",
       completado: "bg-green-100 text-green-800",
       asistio: "bg-green-100 text-green-800",
@@ -308,6 +328,14 @@ export default function PacienteDashboard() {
 
   return (
     <div className="p-6 space-y-6">
+      <NotificationModal
+        isOpen={!!notification}
+        onClose={hideNotification}
+        title={notification?.type === "success" ? "Éxito" : notification?.type === "error" ? "Error" : "Información"}
+        message={notification?.message || ""}
+        type={notification?.type || "info"}
+      />
+
       <div className="flex items-center space-x-3">
         <User className="h-8 w-8 text-blue-600" />
         <div>
@@ -322,6 +350,12 @@ export default function PacienteDashboard() {
             <CardTitle className="flex items-center space-x-2">
               <AlertCircle className="h-5 w-5 text-blue-600" />
               <span>Próximo Turno</span>
+              {isWithin24Hours(nextAppointment.fecha_horario_inicio) && (
+                <Badge className="bg-orange-100 text-orange-800 text-xs">
+                  <Clock className="h-3 w-3 mr-1" />
+                  Gestión disponible
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -344,6 +378,9 @@ export default function PacienteDashboard() {
                   <Badge className={getEstadoBadge(nextAppointment.estado)}>
                     {nextAppointment.estado.replace(/_/g, " ")}
                   </Badge>
+                  {nextAppointment.prioridad && nextAppointment.prioridad !== "normal" && (
+                    <Badge className="ml-2 bg-red-100 text-red-800">{nextAppointment.prioridad}</Badge>
+                  )}
                 </div>
               </div>
 
@@ -487,35 +524,50 @@ export default function PacienteDashboard() {
                   </div>
                 </div>
               ) : (
-                (() => {
-                  const statusMessage = getStatusMessage(nextAppointment.estado)
-                  if (statusMessage) {
-                    return (
-                      <div
-                        className={`p-4 rounded-lg ${
-                          statusMessage.type === "success"
-                            ? "bg-green-50 border border-green-200"
-                            : statusMessage.type === "error"
-                              ? "bg-red-50 border border-red-200"
-                              : "bg-blue-50 border border-blue-200"
-                        }`}
-                      >
-                        <p
-                          className={`text-sm ${
+                <div className="space-y-2">
+                  {!isWithin24Hours(nextAppointment.fecha_horario_inicio) &&
+                    nextAppointment.estado !== "confirmado_paciente" &&
+                    nextAppointment.estado !== "cancelado_paciente" && (
+                      <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+                        <div className="flex items-center space-x-2">
+                          <Lock className="h-4 w-4 text-amber-600" />
+                          <p className="text-sm text-amber-800">
+                            La gestión de turnos se habilita 24 horas antes de la cita
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                  {(() => {
+                    const statusMessage = getStatusMessage(nextAppointment.estado)
+                    if (statusMessage) {
+                      return (
+                        <div
+                          className={`p-4 rounded-lg ${
                             statusMessage.type === "success"
-                              ? "text-green-800"
+                              ? "bg-green-50 border border-green-200"
                               : statusMessage.type === "error"
-                                ? "text-red-800"
-                                : "text-blue-800"
+                                ? "bg-red-50 border border-red-200"
+                                : "bg-blue-50 border border-blue-200"
                           }`}
                         >
-                          {statusMessage.message}
-                        </p>
-                      </div>
-                    )
-                  }
-                  return null
-                })()
+                          <p
+                            className={`text-sm ${
+                              statusMessage.type === "success"
+                                ? "text-green-800"
+                                : statusMessage.type === "error"
+                                  ? "text-red-800"
+                                  : "text-blue-800"
+                            }`}
+                          >
+                            {statusMessage.message}
+                          </p>
+                        </div>
+                      )
+                    }
+                    return null
+                  })()}
+                </div>
               )}
             </div>
           </CardContent>
@@ -592,7 +644,12 @@ export default function PacienteDashboard() {
                     </div>
                     <div className="flex flex-col items-end space-y-2">
                       <Badge className={getEstadoBadge(turno.estado)}>{turno.estado.replace(/_/g, " ")}</Badge>
-
+                      {!canManageAppointment(turno.fecha_horario_inicio, turno.estado) &&
+                        !isWithin24Hours(turno.fecha_horario_inicio) &&
+                        turno.estado !== "confirmado_paciente" &&
+                        turno.estado !== "cancelado_paciente" && (
+                          <Lock className="h-4 w-4 text-gray-400" title="Gestión disponible 24h antes" />
+                        )}
                       {canManageAppointment(turno.fecha_horario_inicio, turno.estado) ? (
                         <div className="flex flex-wrap gap-1">
                           <Button

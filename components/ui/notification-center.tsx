@@ -205,9 +205,6 @@ export default function NotificationCenter() {
     try {
       const response = await fetch("/api/cron/whatsapp-confirmations", {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET}`,
-        },
       })
 
       if (!response.ok) throw new Error("Error enviando confirmaciones")
