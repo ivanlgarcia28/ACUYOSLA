@@ -7,10 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { CheckCircle, Info } from "lucide-react"
+import { CheckCircle, Info, AlertCircle } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-// import { CreditCard } from 'lucide-react'
-// import StripePaymentForm from "@/components/stripe-payment-form"
 
 interface TimeSlot {
   time: string
@@ -28,23 +26,40 @@ export default function AgendarTurno() {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
   const [loading, setLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState<BookingStep>("appointment")
-  // const [appointmentData, setAppointmentData] = useState<any>(null)
-  // const [depositAmount] = useState(5000)
+  const [error, setError] = useState<string | null>(null)
+  const [loadingSlots, setLoadingSlots] = useState(false)
 
   useEffect(() => {
+    console.log("[v0] Loading appointment booking page...")
     const pacienteData = sessionStorage.getItem("paciente")
+    console.log("[v0] Patient data from sessionStorage:", pacienteData)
+
     if (pacienteData) {
-      setPaciente(JSON.parse(pacienteData))
+      try {
+        const p = JSON.parse(pacienteData)
+        console.log("[v0] Parsed patient data:", p)
+        setPaciente(p)
+      } catch (parseError) {
+        console.error("[v0] Error parsing patient data:", parseError)
+        setError("Error al cargar los datos del paciente. Por favor, inicie sesión nuevamente.")
+      }
+    } else {
+      console.log("[v0] No patient data found in sessionStorage")
+      setError("No se encontraron datos del paciente. Por favor, regístrese primero.")
     }
   }, [])
 
   useEffect(() => {
     if (selectedDate) {
+      console.log("[v0] Selected date changed:", selectedDate)
       generateTimeSlots()
     }
   }, [selectedDate])
 
   const generateTimeSlots = async () => {
+    console.log("[v0] Generating time slots for date:", selectedDate)
+    setLoadingSlots(true)
+
     try {
       const supabase = createClient()
 
@@ -55,7 +70,12 @@ export default function AgendarTurno() {
         .gte("fecha_horario_inicio", `${selectedDate} 00:00:00`)
         .lt("fecha_horario_inicio", `${selectedDate} 23:59:59`)
 
-      if (error) throw error
+      if (error) {
+        console.error("[v0] Database error fetching appointments:", error)
+        throw error
+      }
+
+      console.log("[v0] Existing appointments for date:", turnos)
 
       // Generate hourly time slots from 9:00 to 17:00 (only :00 minutes)
       const slots: TimeSlot[] = []
@@ -71,20 +91,41 @@ export default function AgendarTurno() {
             slotDateTime >= turnoStart &&
             slotDateTime < turnoEnd &&
             // Only block for active appointment states (not cancelled or rescheduled)
-            ["reservado", "confirmado", "completado"].includes(turno.estado)
+            ["reservado", "confirmado", "completado", "confirmado_paciente"].includes(turno.estado)
           )
         })
 
+        const isAvailable = !isOccupied && slotDateTime > new Date()
+
         slots.push({
           time,
-          available: !isOccupied && slotDateTime > new Date(),
+          available: isAvailable,
         })
       }
 
+      console.log("[v0] Generated time slots:", slots)
       setTimeSlots(slots)
     } catch (error) {
-      console.error("Error generating time slots:", error)
+      console.error("[v0] Error generating time slots:", error)
+      setTimeSlots([])
+    } finally {
+      setLoadingSlots(false)
     }
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <Card className="max-w-md mx-auto">
+          <CardContent className="pt-6 text-center">
+            <AlertCircle className="h-16 w-16 text-red-600 mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Registro Requerido</h2>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button onClick={() => (window.location.href = "/paciente")}>Ir a Registro</Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

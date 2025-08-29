@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { NotificationModal, useNotification } from "@/components/ui/notification-modal"
-import { Calendar, Clock, User, FileText, CheckCircle, XCircle, RotateCcw, AlertCircle, Lock } from "lucide-react"
+import { Calendar, Clock, User, CheckCircle, XCircle, RotateCcw, AlertCircle, Lock } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
 interface Turno {
@@ -44,6 +44,7 @@ export default function PacienteDashboard() {
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Estados para modales
   const [cancelDialog, setCancelDialog] = useState(false)
@@ -59,17 +60,53 @@ export default function PacienteDashboard() {
 
   const { notification, showNotification, hideNotification } = useNotification()
 
+  const fetchAvailableSlots = async (fecha: string) => {
+    if (!fecha) return
+
+    setLoadingSlots(true)
+    try {
+      const response = await fetch(`/api/turnos/available-slots?fecha=${fecha}`)
+      if (response.ok) {
+        const data = await response.json()
+        setAvailableSlots(data.availableSlots || [])
+      } else {
+        console.error("Error fetching available slots")
+        setAvailableSlots([])
+      }
+    } catch (error) {
+      console.error("Error fetching available slots:", error)
+      setAvailableSlots([])
+    } finally {
+      setLoadingSlots(false)
+    }
+  }
+
   useEffect(() => {
+    console.log("[v0] Loading patient dashboard...")
     const pacienteData = sessionStorage.getItem("paciente")
+    console.log("[v0] Patient data from sessionStorage:", pacienteData)
+
     if (pacienteData) {
-      const p = JSON.parse(pacienteData)
-      setPaciente(p)
-      fetchTurnos(p.dni)
+      try {
+        const p = JSON.parse(pacienteData)
+        console.log("[v0] Parsed patient data:", p)
+        setPaciente(p)
+        fetchTurnos(p.dni)
+      } catch (parseError) {
+        console.error("[v0] Error parsing patient data:", parseError)
+        setError("Error al cargar los datos del paciente. Por favor, inicie sesión nuevamente.")
+        setLoading(false)
+      }
+    } else {
+      console.log("[v0] No patient data found in sessionStorage")
+      setError("No se encontraron datos del paciente. Por favor, regístrese o inicie sesión.")
+      setLoading(false)
     }
   }, [])
 
   const fetchTurnos = async (dni: string) => {
     try {
+      console.log("[v0] Fetching appointments for DNI:", dni)
       const supabase = createClient()
       const { data, error } = await supabase
         .from("turnos")
@@ -89,14 +126,40 @@ export default function PacienteDashboard() {
         .neq("estado", "reprogramado_paciente")
         .order("fecha_horario_inicio", { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error("[v0] Database error:", error)
+        throw error
+      }
+
+      console.log("[v0] Fetched appointments:", data)
       setTurnos(data || [])
     } catch (error) {
-      console.error("Error fetching turnos:", error)
-      showNotification("Error al cargar los turnos", "error")
+      console.error("[v0] Error fetching turnos:", error)
+      showNotification("Error al cargar los turnos. Intente nuevamente.", "error")
     } finally {
       setLoading(false)
     }
+  }
+
+  useEffect(() => {
+    if (rescheduleDate) {
+      fetchAvailableSlots(rescheduleDate)
+    }
+  }, [rescheduleDate])
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <Card className="max-w-md mx-auto">
+          <CardContent className="pt-6 text-center">
+            <AlertCircle className="h-16 w-16 text-red-600 mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Acceso Requerido</h2>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button onClick={() => (window.location.href = "/paciente")}>Ir a Registro</Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   const getNextAppointment = () => {
@@ -280,33 +343,6 @@ export default function PacienteDashboard() {
       minute: "2-digit",
     })
   }
-
-  const fetchAvailableSlots = async (fecha: string) => {
-    if (!fecha) return
-
-    setLoadingSlots(true)
-    try {
-      const response = await fetch(`/api/turnos/available-slots?fecha=${fecha}`)
-      if (response.ok) {
-        const data = await response.json()
-        setAvailableSlots(data.availableSlots || [])
-      } else {
-        console.error("Error fetching available slots")
-        setAvailableSlots([])
-      }
-    } catch (error) {
-      console.error("Error fetching available slots:", error)
-      setAvailableSlots([])
-    } finally {
-      setLoadingSlots(false)
-    }
-  }
-
-  useEffect(() => {
-    if (rescheduleDate) {
-      fetchAvailableSlots(rescheduleDate)
-    }
-  }, [rescheduleDate])
 
   if (loading) {
     return (
@@ -595,9 +631,9 @@ export default function PacienteDashboard() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tratamientos</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+          <CardHeader>
+            <CardTitle>Tratamientos</CardTitle>
+            <CardDescription>Todos sus turnos y tratamientos realizados</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{new Set(turnos.map((t) => t.tratamientos?.nombre)).size}</div>
