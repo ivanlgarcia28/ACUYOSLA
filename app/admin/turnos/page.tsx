@@ -137,7 +137,7 @@ export default function TurnosPage() {
     if (!currentUser) return
 
     try {
-      const { error } = await supabase.from("turnos_audit").insert({
+      const { error } = await supabase.from("turnos_historial").insert({
         turno_id: turnoId,
         usuario_id: currentUser.id,
         usuario_email: currentUser.email,
@@ -158,7 +158,7 @@ export default function TurnosPage() {
   const fetchAuditRecords = async (turnoId: number) => {
     try {
       const { data, error } = await supabase
-        .from("turnos_audit")
+        .from("turnos_historial")
         .select("*")
         .eq("turno_id", turnoId)
         .order("fecha_modificacion", { ascending: false })
