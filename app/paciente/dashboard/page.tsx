@@ -363,9 +363,9 @@ export default function PacienteDashboard() {
   return (
     <div className="p-6 space-y-6">
       <NotificationModal
-        isOpen={!!notification}
+        isOpen={notification.isOpen}
         onClose={hideNotification}
-        title={notification?.type === "success" ? "Éxito" : notification?.type === "error" ? "Error" : "Información"}
+        title={notification?.title}
         message={notification?.message || ""}
         type={notification?.type || "info"}
       />
