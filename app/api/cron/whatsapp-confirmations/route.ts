@@ -13,7 +13,9 @@ export async function GET(request: NextRequest) {
     const supabase = createClient()
 
     // Get pending confirmations to send
-    const { data: pendingConfirmations, error } = await supabase.rpc("get_pending_whatsapp_confirmations")
+    const { data: pendingConfirmations, error } = await supabase.rpc("get_pending_confirmations", {
+      p_canal: "whatsapp",
+    })
 
     if (error) {
       console.error("Error fetching pending confirmations:", error)
@@ -25,14 +27,14 @@ export async function GET(request: NextRequest) {
     for (const confirmation of pendingConfirmations || []) {
       try {
         // Send WhatsApp message (you'll need to implement this with your WhatsApp provider)
-        const messageResult = await sendWhatsAppMessage(confirmation.patient_phone, confirmation.message_content)
+        const messageResult = await sendWhatsAppMessage(confirmation.destinatario, confirmation.contenido)
 
         if (messageResult.success) {
           // Update confirmation status to sent
-          await supabase.rpc("update_whatsapp_confirmation_status", {
+          await supabase.rpc("update_confirmation_status", {
             p_confirmation_id: confirmation.confirmation_id,
             p_delivery_status: "sent",
-            p_whatsapp_message_id: messageResult.messageId,
+            p_external_message_id: messageResult.messageId,
           })
 
           results.push({
@@ -42,9 +44,10 @@ export async function GET(request: NextRequest) {
           })
         } else {
           // Update confirmation status to failed
-          await supabase.rpc("update_whatsapp_confirmation_status", {
+          await supabase.rpc("update_confirmation_status", {
             p_confirmation_id: confirmation.confirmation_id,
             p_delivery_status: "failed",
+            p_metadata: { error: messageResult.error },
           })
 
           results.push({

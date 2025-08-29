@@ -1,4 +1,3 @@
-/*
 import { type NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 
@@ -8,7 +7,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("[v0] Stripe Secret Key starts with:", process.env.STRIPE_SECRET_KEY?.substring(0, 7))
+    console.log("[v0] Stripe Secret Key configured:", !!process.env.STRIPE_SECRET_KEY)
     console.log("[v0] Creating payment intent...")
 
     const { amount, currency = "ars", metadata } = await request.json()
@@ -19,7 +18,7 @@ export async function POST(request: NextRequest) {
       amount: Math.round(amount * 100), // Convert to cents
       currency,
       metadata: {
-        type: "appointment_deposit",
+        type: "appointment_payment",
         ...metadata,
       },
       automatic_payment_methods: {
@@ -37,11 +36,4 @@ export async function POST(request: NextRequest) {
     console.error("[v0] Error creating payment intent:", error)
     return NextResponse.json({ error: "Error creating payment intent" }, { status: 500 })
   }
-}
-*/
-
-import { NextResponse } from "next/server"
-
-export async function POST() {
-  return NextResponse.json({ error: "Payment functionality is currently disabled" }, { status: 503 })
 }

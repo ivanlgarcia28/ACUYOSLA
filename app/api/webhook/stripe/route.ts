@@ -1,13 +1,10 @@
-/*
 import { type NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
-import { createClient } from "@supabase/supabase-js"
+import { createClient } from "@/lib/supabase/server"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2024-12-18.acacia",
 })
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
@@ -22,22 +19,39 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
 
+  const supabase = createClient()
+
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent
 
-    if (paymentIntent.metadata.type === "appointment_deposit") {
-      // Update appointment status to confirmed when payment succeeds
-      const { error } = await supabase
+    if (paymentIntent.metadata.type === "appointment_payment") {
+      const { error: paymentError } = await supabase
+        .from("turnos_pagos")
+        .update({
+          estado_pago: "pagado",
+          monto_pagado: paymentIntent.amount / 100,
+          fecha_pago: new Date().toISOString(),
+          observaciones: `Pago completado via Stripe - ${paymentIntent.id}`,
+        })
+        .eq("turno_id", paymentIntent.metadata.turno_id)
+
+      const { error: turnoError } = await supabase
         .from("turnos")
         .update({
-          estado: "confirmado",
-          payment_status: "succeeded",
-          payment_amount: paymentIntent.amount / 100,
+          estado: "confirmado_paciente",
         })
-        .eq("payment_intent_id", paymentIntent.id)
+        .eq("id", paymentIntent.metadata.turno_id)
 
-      if (error) {
-        console.error("Error updating appointment on payment success:", error)
+      await supabase.from("turnos_historial").insert({
+        turno_id: Number.parseInt(paymentIntent.metadata.turno_id),
+        estado_anterior: "reservado",
+        estado_nuevo: "confirmado_paciente",
+        comentario: `Pago completado exitosamente via Stripe`,
+        tipo_cambio: "pago",
+      })
+
+      if (paymentError || turnoError) {
+        console.error("Error updating payment/appointment:", { paymentError, turnoError })
       }
     }
   }
@@ -45,35 +59,24 @@ export async function POST(request: NextRequest) {
   if (event.type === "payment_intent.payment_failed") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent
 
-    if (paymentIntent.metadata.type === "appointment_deposit") {
-      // Delete appointment if payment fails
-      const { error } = await supabase.from("turnos").delete().eq("payment_intent_id", paymentIntent.id)
+    if (paymentIntent.metadata.type === "appointment_payment") {
+      await supabase
+        .from("turnos_pagos")
+        .update({
+          estado_pago: "fallido",
+          observaciones: `Pago fallido via Stripe - ${paymentIntent.id}`,
+        })
+        .eq("turno_id", paymentIntent.metadata.turno_id)
 
-      if (error) {
-        console.error("Error deleting appointment on payment failure:", error)
-      }
-    }
-  }
-
-  if (event.type === "payment_intent.canceled") {
-    const paymentIntent = event.data.object as Stripe.PaymentIntent
-
-    if (paymentIntent.metadata.type === "appointment_deposit") {
-      // Delete appointment if payment is canceled
-      const { error } = await supabase.from("turnos").delete().eq("payment_intent_id", paymentIntent.id)
-
-      if (error) {
-        console.error("Error deleting appointment on payment cancellation:", error)
-      }
+      await supabase.from("turnos_historial").insert({
+        turno_id: Number.parseInt(paymentIntent.metadata.turno_id),
+        estado_anterior: "reservado",
+        estado_nuevo: "pago_fallido",
+        comentario: `Pago fallido via Stripe`,
+        tipo_cambio: "pago",
+      })
     }
   }
 
   return NextResponse.json({ received: true })
-}
-*/
-
-import { NextResponse } from "next/server"
-
-export async function POST() {
-  return NextResponse.json({ error: "Stripe webhook functionality is currently disabled" }, { status: 503 })
 }
