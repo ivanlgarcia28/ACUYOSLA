@@ -18,7 +18,18 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { NotificationModal, useNotification } from "@/components/ui/notification-modal"
-import { Calendar, Clock, User, CheckCircle, XCircle, RotateCcw, AlertCircle, Lock } from "lucide-react"
+import {
+  Calendar,
+  Clock,
+  User,
+  CheckCircle,
+  XCircle,
+  RotateCcw,
+  AlertCircle,
+  Lock,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
 interface Turno {
@@ -344,6 +355,14 @@ export default function PacienteDashboard() {
     })
   }
 
+  const handleCalendarTurnoClick = (turno: any) => {
+    // Show turno details or allow management if within 24 hours
+    if (canManageAppointment(turno.fecha_horario_inicio, turno.estado)) {
+      setSelectedTurno(turno)
+      // Could open a management modal here if needed
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-6">
@@ -605,6 +624,19 @@ export default function PacienteDashboard() {
         </Card>
       )}
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Calendar className="h-5 w-5 text-blue-600" />
+            <span>Calendario de Turnos</span>
+          </CardTitle>
+          <CardDescription>Vista de calendario con todos sus turnos programados</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PatientCalendarView pacienteDni={paciente?.dni} onTurnoClick={handleCalendarTurnoClick} />
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -665,9 +697,7 @@ export default function PacienteDashboard() {
                         </span>
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">
-                          {turno.tratamientos?.nombre || "Tratamiento no especificado"}
-                        </p>
+                        <p className="font-medium text-gray-900">{turno.tratamientos?.nombre || "Consulta"}</p>
                         {turno.tratamientos?.descripcion && (
                           <p className="text-sm text-gray-600">{turno.tratamientos.descripcion}</p>
                         )}
@@ -852,6 +882,243 @@ export default function PacienteDashboard() {
           )}
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+function PatientCalendarView({
+  pacienteDni,
+  onTurnoClick,
+}: { pacienteDni: string; onTurnoClick: (turno: any) => void }) {
+  const [currentDate, setCurrentDate] = useState(new Date())
+  const [view, setView] = useState<"month" | "week" | "day">("month")
+  const [turnos, setTurnos] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const supabase = createClient()
+
+  const fetchTurnos = async () => {
+    if (!pacienteDni) return
+
+    setLoading(true)
+    try {
+      let startDate: Date
+      let endDate: Date
+
+      if (view === "month") {
+        startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+        endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59)
+      } else if (view === "week") {
+        const dayOfWeek = currentDate.getDay()
+        const diff = currentDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
+        startDate = new Date(currentDate.setDate(diff))
+        endDate = new Date(startDate)
+        endDate.setDate(startDate.getDate() + 6)
+        endDate.setHours(23, 59, 59)
+      } else {
+        startDate = new Date(currentDate)
+        startDate.setHours(0, 0, 0, 0)
+        endDate = new Date(currentDate)
+        endDate.setHours(23, 59, 59)
+      }
+
+      const { data } = await supabase
+        .from("turnos")
+        .select(`
+          id,
+          fecha_horario_inicio,
+          fecha_horario_fin,
+          estado,
+          observaciones,
+          tratamientos (
+            nombre,
+            descripcion
+          )
+        `)
+        .eq("paciente_dni", pacienteDni)
+        .neq("estado", "reprogramado_paciente")
+        .gte("fecha_horario_inicio", startDate.toISOString())
+        .lte("fecha_horario_inicio", endDate.toISOString())
+        .order("fecha_horario_inicio")
+
+      setTurnos(data || [])
+    } catch (error) {
+      console.error("Error fetching patient turnos:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchTurnos()
+  }, [currentDate, view, pacienteDni])
+
+  const navigateDate = (direction: "prev" | "next") => {
+    const newDate = new Date(currentDate)
+
+    if (view === "month") {
+      newDate.setMonth(newDate.getMonth() + (direction === "next" ? 1 : -1))
+    } else if (view === "week") {
+      newDate.setDate(newDate.getDate() + (direction === "next" ? 7 : -7))
+    } else {
+      newDate.setDate(newDate.getDate() + (direction === "next" ? 1 : -1))
+    }
+
+    setCurrentDate(newDate)
+  }
+
+  const getEstadoColor = (estado: string) => {
+    const colors = {
+      reservado: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      confirmado_paciente: "bg-blue-100 text-blue-800 border-blue-200",
+      confirmado_clinica: "bg-green-100 text-green-800 border-green-200",
+      en_curso: "bg-purple-100 text-purple-800 border-purple-200",
+      completado: "bg-gray-100 text-gray-800 border-gray-200",
+      no_asistio: "bg-red-100 text-red-800 border-red-200",
+      cancelado_paciente: "bg-gray-100 text-gray-800 border-gray-200",
+    }
+    return colors[estado as keyof typeof colors] || "bg-gray-100 text-gray-800"
+  }
+
+  const renderMonthView = () => {
+    const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+    const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
+    const startDate = new Date(firstDay)
+    startDate.setDate(startDate.getDate() - firstDay.getDay())
+
+    const days = []
+    const currentDateObj = new Date(startDate)
+
+    for (let i = 0; i < 42; i++) {
+      const dayTurnos = turnos.filter(
+        (turno) => new Date(turno.fecha_horario_inicio).toDateString() === currentDateObj.toDateString(),
+      )
+
+      days.push(
+        <div
+          key={i}
+          className={`min-h-[100px] p-2 border border-gray-200 ${
+            currentDateObj.getMonth() !== currentDate.getMonth() ? "bg-gray-50 text-gray-400" : "bg-white"
+          }`}
+        >
+          <div className="font-medium text-sm mb-1">{currentDateObj.getDate()}</div>
+          <div className="space-y-1">
+            {dayTurnos.slice(0, 2).map((turno) => (
+              <div
+                key={turno.id}
+                className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 ${getEstadoColor(turno.estado)}`}
+                onClick={() => onTurnoClick?.(turno)}
+              >
+                <div className="font-medium truncate">
+                  {new Date(turno.fecha_horario_inicio).toLocaleTimeString("es-ES", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
+                <div className="truncate">{turno.tratamientos?.nombre || "Consulta"}</div>
+              </div>
+            ))}
+            {dayTurnos.length > 2 && <div className="text-xs text-gray-500">+{dayTurnos.length - 2} más</div>}
+          </div>
+        </div>,
+      )
+
+      currentDateObj.setDate(currentDateObj.getDate() + 1)
+    }
+
+    return (
+      <div className="grid grid-cols-7 gap-0 border border-gray-200">
+        {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((day) => (
+          <div key={day} className="p-3 bg-gray-100 font-medium text-center text-sm border-b">
+            {day}
+          </div>
+        ))}
+        {days}
+      </div>
+    )
+  }
+
+  const getViewTitle = () => {
+    if (view === "month") {
+      return currentDate.toLocaleDateString("es-ES", { month: "long", year: "numeric" })
+    } else if (view === "week") {
+      const startOfWeek = new Date(currentDate)
+      const day = startOfWeek.getDay()
+      const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1)
+      startOfWeek.setDate(diff)
+      const endOfWeek = new Date(startOfWeek)
+      endOfWeek.setDate(startOfWeek.getDate() + 6)
+
+      return `${startOfWeek.getDate()} - ${endOfWeek.getDate()} ${endOfWeek.toLocaleDateString("es-ES", { month: "long", year: "numeric" })}`
+    } else {
+      return currentDate.toLocaleDateString("es-ES", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-2">
+          <div className="flex rounded-md border">
+            <Button
+              variant={view === "month" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setView("month")}
+              className="rounded-r-none"
+            >
+              Mes
+            </Button>
+            <Button
+              variant={view === "week" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setView("week")}
+              className="rounded-none border-x-0"
+            >
+              Semana
+            </Button>
+            <Button
+              variant={view === "day" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setView("day")}
+              className="rounded-l-none"
+            >
+              Día
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="sm" onClick={() => navigateDate("prev")}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
+            Hoy
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigateDate("next")}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="mb-2">
+        <h3 className="text-lg font-semibold capitalize">{getViewTitle()}</h3>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          {view === "month" && renderMonthView()}
+          {view === "week" && <div className="text-center py-8 text-gray-500">Vista semanal próximamente</div>}
+          {view === "day" && <div className="text-center py-8 text-gray-500">Vista diaria próximamente</div>}
+        </div>
+      )}
     </div>
   )
 }
