@@ -27,7 +27,7 @@ interface CalendarViewProps {
   patientDni?: string // Optional filter for patient-specific view
 }
 
-export default function CalendarView({ onTurnoClick, patientDni }: CalendarViewProps) {
+const CalendarView = ({ onTurnoClick, patientDni }: CalendarViewProps) => {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<"month" | "week" | "day">("month")
   const [turnos, setTurnos] = useState<CalendarTurno[]>([])
@@ -397,3 +397,6 @@ export default function CalendarView({ onTurnoClick, patientDni }: CalendarViewP
     </Card>
   )
 }
+
+export default CalendarView
+export { CalendarView }
