@@ -30,7 +30,6 @@ interface Turno {
     nombre: string
     descripcion: string
   }
-  prioridad?: string
   observaciones?: string
   created_at?: string
 }
@@ -79,7 +78,6 @@ export default function PacienteDashboard() {
           fecha_horario_inicio,
           fecha_horario_fin,
           estado,
-          prioridad,
           observaciones,
           created_at,
           tratamientos (
@@ -378,9 +376,6 @@ export default function PacienteDashboard() {
                   <Badge className={getEstadoBadge(nextAppointment.estado)}>
                     {nextAppointment.estado.replace(/_/g, " ")}
                   </Badge>
-                  {nextAppointment.prioridad && nextAppointment.prioridad !== "normal" && (
-                    <Badge className="ml-2 bg-red-100 text-red-800">{nextAppointment.prioridad}</Badge>
-                  )}
                 </div>
               </div>
 
