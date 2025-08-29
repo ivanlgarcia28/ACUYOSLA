@@ -398,6 +398,6 @@ const CalendarView = ({ onTurnoClick, patientDni }: CalendarViewProps) => {
   )
 }
 
+export default CalendarView
 export { CalendarView }
 export const CalendarViewComponent = CalendarView
-export default CalendarView
